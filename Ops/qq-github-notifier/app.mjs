@@ -356,8 +356,10 @@ function formatTodaySummary() {
     `共收到 ${items.length} 次分支推送：`,
   ];
   for (const item of items) {
-    const details = String(item.message).split(/\r?\n/).filter(Boolean);
-    lines.push("", ...details.slice(1, -1));
+    const details = String(item.message)
+      .split(/\r?\n/)
+      .filter((line) => line && !/^https?:\/\//i.test(line));
+    lines.push("", ...details.slice(1));
   }
   return truncateUtf8(lines.join("\n"), 2800);
 }
@@ -399,13 +401,6 @@ function formatPushMessage(payload) {
     if (commits.length > 5) {
       lines.push(`……另有 ${commits.length - 5} 个提交`);
     }
-  }
-
-  const link = payload.compare
-    || payload.head_commit?.url
-    || payload.repository?.html_url;
-  if (link) {
-    lines.push("", String(link));
   }
 
   return truncateUtf8(lines.join("\n"), 2800);
