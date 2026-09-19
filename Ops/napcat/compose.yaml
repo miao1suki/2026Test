@@ -1,0 +1,25 @@
+services:
+  napcat:
+    image: mlikiowa/napcat-docker:latest
+    container_name: napcat
+    restart: unless-stopped
+    environment:
+      NAPCAT_UID: ${NAPCAT_UID:-1000}
+      NAPCAT_GID: ${NAPCAT_GID:-1000}
+      ACCOUNT: ${NAPCAT_ACCOUNT}
+      WEBUI_TOKEN: ${NAPCAT_WEBUI_TOKEN}
+      WEBUI_PREFIX: ""
+    ports:
+      - "127.0.0.1:6099:6099"
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - /opt/napcat/data/qq:/app/.config/QQ
+      - /opt/napcat/data/config:/app/napcat/config
+    shm_size: 256m
+    mem_limit: 1g
+    cpus: 1.5
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

@@ -23,12 +23,18 @@ const statePath = config.statePath ?? "/var/lib/qq-github-notifier/state.json";
 const listenHost = config.listenHost ?? "127.0.0.1";
 const listenPort = Number(config.listenPort ?? 8787);
 const recentDeliveryLimit = 200;
+const historyLimit = 500;
 const maxRequestBytes = 25 * 1024 * 1024;
+const onebotBaseUrl = config.onebotBaseUrl ?? "http://127.0.0.1:3001";
+const onebotTokenPath = config.onebotTokenPath ?? "/etc/qq-github-notifier/onebot-token";
+const onebotGroupId = Number(config.onebotGroupId ?? 0);
+const reportTimeZone = config.reportTimeZone ?? "Asia/Shanghai";
 
 const defaultState = {
   groupOpenId: null,
   recentDeliveries: [],
   queue: [],
+  history: [],
 };
 
 let state = loadState();
@@ -54,13 +60,11 @@ const bot = new QQBot({
 bot.on("ready", () => {
   botReady = true;
   console.log("QQ gateway connected; bot is online.");
-  scheduleQueue(0);
 });
 
 bot.on("resumed", () => {
   botReady = true;
   console.log("QQ gateway session resumed.");
-  scheduleQueue(0);
 });
 
 bot.on("error", (error) => {
@@ -73,21 +77,13 @@ bot.on("message", async (_context, message) => {
   }
 
   const groupOpenId = message.replyTarget.targetId;
-  const isNewTarget = !state.groupOpenId;
-  if (isNewTarget) {
+  if (state.groupOpenId !== groupOpenId) {
     state.groupOpenId = groupOpenId;
     saveState();
-    console.log("Target QQ group captured from an @ message.");
-    scheduleQueue(0);
+    console.log("Official bot query group updated from an @ message.");
   }
 
-  if (state.groupOpenId !== groupOpenId) {
-    return;
-  }
-
-  const reply = isNewTarget
-    ? "连接成功。本群已设置为 2026Test 的 GitHub 推送通知群。"
-    : "机器人在线，GitHub 推送通知服务运行正常。";
+  const reply = formatTodaySummary();
 
   try {
     await bot.sendText(message.replyTarget, reply);
@@ -122,6 +118,7 @@ const httpServer = createServer(async (request, response) => {
         ok: true,
         botReady,
         groupConfigured: Boolean(state.groupOpenId),
+        onebotConfigured: onebotGroupId > 0 && existsSync(onebotTokenPath),
         queuedNotifications: state.queue.length,
       });
     }
@@ -159,12 +156,19 @@ const httpServer = createServer(async (request, response) => {
       return sendJson(response, 202, { ok: true, ignored: "not_a_branch_push" });
     }
 
-    state.queue.push({
+    const queuedItem = {
       deliveryId,
       message: formatPushMessage(payload),
       attempts: 0,
       createdAt: new Date().toISOString(),
+    };
+    state.queue.push(queuedItem);
+    state.history.push({
+      deliveryId,
+      message: queuedItem.message,
+      createdAt: queuedItem.createdAt,
     });
+    state.history = state.history.slice(-historyLimit);
     saveState();
     scheduleQueue(0);
     return sendJson(response, 202, { ok: true, queued: true });
@@ -176,6 +180,7 @@ const httpServer = createServer(async (request, response) => {
 
 httpServer.listen(listenPort, listenHost, () => {
   console.log(`GitHub webhook listener ready on ${listenHost}:${listenPort}.`);
+  scheduleQueue(0);
 });
 
 const abortController = new AbortController();
@@ -208,6 +213,13 @@ function loadState() {
       groupOpenId: typeof loaded.groupOpenId === "string" ? loaded.groupOpenId : null,
       recentDeliveries: Array.isArray(loaded.recentDeliveries) ? loaded.recentDeliveries : [],
       queue: Array.isArray(loaded.queue) ? loaded.queue : [],
+      history: Array.isArray(loaded.history)
+        ? loaded.history
+        : (Array.isArray(loaded.queue) ? loaded.queue : []).map(({ deliveryId, message, createdAt }) => ({
+            deliveryId,
+            message,
+            createdAt,
+          })),
     };
   } catch (error) {
     console.error(`State file could not be read; starting clean: ${error.message}`);
@@ -281,21 +293,21 @@ function scheduleQueue(delayMs) {
 }
 
 async function processQueue() {
-  if (queueRunning || !botReady || !state.groupOpenId || state.queue.length === 0) {
+  if (queueRunning || onebotGroupId <= 0 || !existsSync(onebotTokenPath) || state.queue.length === 0) {
     return;
   }
 
   queueRunning = true;
   try {
-    while (botReady && state.groupOpenId && state.queue.length > 0) {
+    while (state.queue.length > 0) {
       const item = state.queue[0];
       try {
-        await bot.sendText({ scope: "group", targetId: state.groupOpenId }, item.message);
+        await sendOneBotText(item.message);
         state.queue.shift();
         state.recentDeliveries.push(item.deliveryId);
         state.recentDeliveries = state.recentDeliveries.slice(-recentDeliveryLimit);
         saveState();
-        console.log(`GitHub delivery sent to QQ: ${item.deliveryId}`);
+        console.log(`GitHub delivery sent through NapCat: ${item.deliveryId}`);
         await sleep(3000);
       } catch (error) {
         item.attempts += 1;
@@ -309,6 +321,54 @@ async function processQueue() {
   } finally {
     queueRunning = false;
   }
+}
+
+async function sendOneBotText(message) {
+  const token = readFileSync(onebotTokenPath, "utf8").trim();
+  const response = await fetch(`${onebotBaseUrl}/send_group_msg`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      group_id: onebotGroupId,
+      message,
+    }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  const result = await response.json();
+  if (!response.ok || result.status !== "ok" || result.retcode !== 0) {
+    throw new Error(`OneBot send failed: HTTP ${response.status}, retcode ${result.retcode ?? "unknown"}`);
+  }
+}
+
+function formatTodaySummary() {
+  const today = dateKey(new Date());
+  const items = state.history.filter((item) => dateKey(new Date(item.createdAt)) === today);
+  if (items.length === 0) {
+    return "📋 2026Test 今日 Git 变动\n\n今天还没有收到任何分支推送。";
+  }
+
+  const lines = [
+    "📋 2026Test 今日 Git 变动",
+    "",
+    `共收到 ${items.length} 次分支推送：`,
+  ];
+  for (const item of items) {
+    const details = String(item.message).split(/\r?\n/).filter(Boolean);
+    lines.push("", ...details.slice(1, -1));
+  }
+  return truncateUtf8(lines.join("\n"), 2800);
+}
+
+function dateKey(date) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: reportTimeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
 }
 
 function formatPushMessage(payload) {
