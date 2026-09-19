@@ -6,5 +6,9 @@
   "apiBaseUrl": "https://api.bot.qq.com",
   "listenHost": "127.0.0.1",
   "listenPort": 8787,
-  "statePath": "/var/lib/qq-github-notifier/state.json"
+  "statePath": "/var/lib/qq-github-notifier/state.json",
+  "onebotBaseUrl": "http://127.0.0.1:3001",
+  "onebotTokenPath": "/etc/qq-github-notifier/onebot-token",
+  "onebotGroupId": 123456789,
+  "reportTimeZone": "Asia/Shanghai"
 }
