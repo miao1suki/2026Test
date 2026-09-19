@@ -1,0 +1,4 @@
+interface:
+  display_name: "Unity Git 分支协作者"
+  short_description: "规范 2026Test 协作者安全拉取、提交并推送独立任务分支"
+  default_prompt: "使用 $unity-git-branch-worker 在 2026Test 仓库的独立分支上完成任务并推送交接。"
