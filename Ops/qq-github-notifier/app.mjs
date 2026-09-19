@@ -181,6 +181,11 @@ httpServer.listen(listenPort, listenHost, () => {
 const abortController = new AbortController();
 for (const signalName of ["SIGINT", "SIGTERM"]) {
   process.on(signalName, () => {
+    if (queueTimer) {
+      clearTimeout(queueTimer);
+      queueTimer = null;
+    }
+    bot.stop();
     abortController.abort();
     httpServer.close();
   });
