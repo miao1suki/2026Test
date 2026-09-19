@@ -1,0 +1,10 @@
+{
+  "appId": "QQ_OPEN_PLATFORM_APP_ID",
+  "appSecret": "QQ_OPEN_PLATFORM_APP_SECRET",
+  "githubWebhookSecret": "GENERATE_A_RANDOM_SECRET",
+  "repository": "miao1suki/2026Test",
+  "apiBaseUrl": "https://api.bot.qq.com",
+  "listenHost": "127.0.0.1",
+  "listenPort": 8787,
+  "statePath": "/var/lib/qq-github-notifier/state.json"
+}

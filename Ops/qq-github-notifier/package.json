@@ -1,0 +1,12 @@
+{
+  "name": "qq-github-notifier",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@tencent-connect/qqbot-nodejs": "1.0.4"
+  }
+}

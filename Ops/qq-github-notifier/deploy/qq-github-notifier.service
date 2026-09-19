@@ -1,0 +1,23 @@
+[Unit]
+Description=QQ GitHub Push Notifier
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=qqgitbot
+Group=qqgitbot
+WorkingDirectory=/opt/qq-github-notifier/app
+Environment=NODE_ENV=production
+Environment=NOTIFIER_CONFIG=/etc/qq-github-notifier/config.json
+ExecStart=/opt/qq-github-notifier/node/bin/node /opt/qq-github-notifier/app/app.mjs
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/qq-github-notifier
+
+[Install]
+WantedBy=multi-user.target
