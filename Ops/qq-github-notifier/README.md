@@ -7,6 +7,7 @@ for `miao1suki/2026Test` GitHub notifications.
 
 - NapCat proactively delivers every GitHub branch push in queue order.
 - Push messages stay compact and omit repository and comparison URLs.
+- Push messages include the latest commit time in `Asia/Shanghai`.
 - Mentioning the official bot replies with a summary of today's received pushes.
 - The most recent group that mentions the official bot becomes its query target.
 - Tag pushes and non-push GitHub events are ignored.

@@ -373,6 +373,23 @@ function dateKey(date) {
   }).format(date);
 }
 
+function formatDateTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "未知";
+  }
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: reportTimeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(date).replaceAll("/", "-");
+}
+
 function formatPushMessage(payload) {
   const branch = payload.ref.slice("refs/heads/".length);
   const actor = payload.sender?.login ?? payload.pusher?.name ?? "未知用户";
@@ -389,6 +406,7 @@ function formatPushMessage(payload) {
     "📦 2026Test Git 推送通知",
     "",
     `${actor} ${action}：${branch}`,
+    `提交时间：${formatDateTime(payload.head_commit?.timestamp ?? new Date())}`,
     `提交数量：${commits.length}`,
   ];
 
