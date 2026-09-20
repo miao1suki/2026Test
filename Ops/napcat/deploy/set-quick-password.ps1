@@ -8,14 +8,16 @@ $securePassword = Read-Host "Notification QQ password" -AsSecureString
 $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
 $plainText = $null
 $passwordBytes = $null
+$hashBytes = $null
 $passwordMd5 = $null
+$md5 = $null
 
 try {
     $plainText = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
     $passwordBytes = [Text.Encoding]::UTF8.GetBytes($plainText)
-    $passwordMd5 = [Convert]::ToHexString(
-        [Security.Cryptography.MD5]::HashData($passwordBytes)
-    ).ToLowerInvariant()
+    $md5 = [Security.Cryptography.MD5]::Create()
+    $hashBytes = $md5.ComputeHash($passwordBytes)
+    $passwordMd5 = [BitConverter]::ToString($hashBytes).Replace("-", "").ToLowerInvariant()
 
     $passwordMd5 | & ssh.exe -i $SshKeyPath -o StrictHostKeyChecking=accept-new `
         $Server "sudo /opt/napcat/configure-quick-password.sh"
@@ -26,6 +28,12 @@ try {
 finally {
     if ($passwordBytes) {
         [Array]::Clear($passwordBytes, 0, $passwordBytes.Length)
+    }
+    if ($hashBytes) {
+        [Array]::Clear($hashBytes, 0, $hashBytes.Length)
+    }
+    if ($md5) {
+        $md5.Dispose()
     }
     if ($bstr -ne [IntPtr]::Zero) {
         [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
