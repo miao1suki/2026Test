@@ -4,11 +4,13 @@ param(
     [string]$Server = "ubuntu@62.234.93.20"
 )
 
+$ErrorActionPreference = "Stop"
 $securePassword = Read-Host "Notification QQ password" -AsSecureString
 $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
 $plainText = $null
 $passwordBytes = $null
 $hashBytes = $null
+$inputPayload = $null
 $passwordMd5 = $null
 $md5 = $null
 
@@ -27,14 +29,14 @@ try {
     $sshStartInfo.RedirectStandardInput = $true
     $sshStartInfo.RedirectStandardOutput = $true
     $sshStartInfo.RedirectStandardError = $true
-    $sshStartInfo.StandardInputEncoding = [Text.Encoding]::ASCII
 
     $sshProcess = New-Object Diagnostics.Process
     $sshProcess.StartInfo = $sshStartInfo
     [void]$sshProcess.Start()
-    $sshProcess.StandardInput.NewLine = "`n"
-    $sshProcess.StandardInput.WriteLine($passwordMd5)
-    $sshProcess.StandardInput.Close()
+    $inputPayload = [Text.Encoding]::ASCII.GetBytes($passwordMd5 + "`n")
+    $sshProcess.StandardInput.BaseStream.Write($inputPayload, 0, $inputPayload.Length)
+    $sshProcess.StandardInput.BaseStream.Flush()
+    $sshProcess.StandardInput.BaseStream.Close()
     $sshOutput = $sshProcess.StandardOutput.ReadToEnd()
     $sshError = $sshProcess.StandardError.ReadToEnd()
     $sshProcess.WaitForExit()
@@ -57,6 +59,9 @@ finally {
     }
     if ($hashBytes) {
         [Array]::Clear($hashBytes, 0, $hashBytes.Length)
+    }
+    if ($inputPayload) {
+        [Array]::Clear($inputPayload, 0, $inputPayload.Length)
     }
     if ($md5) {
         $md5.Dispose()
