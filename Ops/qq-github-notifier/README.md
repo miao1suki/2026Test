@@ -6,6 +6,8 @@ for `miao1suki/2026Test` GitHub notifications.
 ## Behavior
 
 - NapCat proactively delivers every GitHub branch push in queue order.
+- Recoverable QQ transport failures request a rate-limited NapCat restart; the
+  persisted queue is drained after login recovers.
 - Push messages stay compact and omit repository and comparison URLs.
 - Push messages include the latest commit time in `Asia/Shanghai`.
 - Mentioning the official bot replies with a summary of today's received pushes.

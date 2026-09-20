@@ -29,6 +29,8 @@ const onebotBaseUrl = config.onebotBaseUrl ?? "http://127.0.0.1:3001";
 const onebotTokenPath = config.onebotTokenPath ?? "/etc/qq-github-notifier/onebot-token";
 const onebotGroupId = Number(config.onebotGroupId ?? 0);
 const reportTimeZone = config.reportTimeZone ?? "Asia/Shanghai";
+const recoveryRequestPath = config.recoveryRequestPath
+  ?? "/var/lib/qq-github-notifier/napcat-recovery.request";
 
 const defaultState = {
   groupOpenId: null,
@@ -312,6 +314,9 @@ async function processQueue() {
       } catch (error) {
         item.attempts += 1;
         saveState();
+        if (item.attempts === 3 && isRecoverableOneBotFailure(error)) {
+          requestNapCatRecovery(item, error);
+        }
         const delay = Math.min(300_000, 5000 * (2 ** Math.min(item.attempts - 1, 6)));
         console.error(`QQ notification attempt ${item.attempts} failed: ${redact(error?.message ?? String(error))}`);
         scheduleQueue(delay);
@@ -339,7 +344,36 @@ async function sendOneBotText(message) {
   });
   const result = await response.json();
   if (!response.ok || result.status !== "ok" || result.retcode !== 0) {
-    throw new Error(`OneBot send failed: HTTP ${response.status}, retcode ${result.retcode ?? "unknown"}`);
+    const detail = String(result.wording || result.message || "").slice(0, 500);
+    const error = new Error(
+      `OneBot send failed: HTTP ${response.status}, retcode ${result.retcode ?? "unknown"}, detail ${detail}`,
+    );
+    error.onebotRetcode = result.retcode;
+    error.onebotDetail = detail;
+    throw error;
+  }
+}
+
+function isRecoverableOneBotFailure(error) {
+  const detail = String(error?.onebotDetail ?? error?.message ?? "");
+  return error?.onebotRetcode === 200
+    && /1006514|网络连接异常|EventChecker Failed|sendMsg.*Timeout/i.test(detail);
+}
+
+function requestNapCatRecovery(item, error) {
+  try {
+    mkdirSync(dirname(recoveryRequestPath), { recursive: true });
+    const temporaryPath = `${recoveryRequestPath}.tmp`;
+    writeFileSync(temporaryPath, `${JSON.stringify({
+      requestedAt: new Date().toISOString(),
+      deliveryId: item.deliveryId,
+      attempts: item.attempts,
+      reason: String(error?.onebotDetail ?? error?.message ?? "unknown").slice(0, 500),
+    }, null, 2)}\n`, { mode: 0o600 });
+    renameSync(temporaryPath, recoveryRequestPath);
+    console.warn("NapCat recovery requested after repeated QQ transport failures.");
+  } catch (requestError) {
+    console.error(`Could not request NapCat recovery: ${redact(requestError?.message ?? String(requestError))}`);
   }
 }
 

@@ -103,6 +103,14 @@ config = {
     "listenHost": "127.0.0.1",
     "listenPort": 8787,
     "statePath": "/var/lib/qq-github-notifier/state.json",
+    "onebotBaseUrl": existing.get("onebotBaseUrl", "http://127.0.0.1:3001"),
+    "onebotTokenPath": existing.get("onebotTokenPath", "/etc/qq-github-notifier/onebot-token"),
+    "onebotGroupId": existing.get("onebotGroupId", 0),
+    "reportTimeZone": existing.get("reportTimeZone", "Asia/Shanghai"),
+    "recoveryRequestPath": existing.get(
+        "recoveryRequestPath",
+        "/var/lib/qq-github-notifier/napcat-recovery.request",
+    ),
 }
 with open(output_path, "w", encoding="utf-8") as handle:
     json.dump(config, handle, ensure_ascii=False, indent=2)

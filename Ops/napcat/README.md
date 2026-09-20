@@ -8,6 +8,8 @@ Security defaults:
 - WebUI `6099` and OneBot HTTP `3001` bind only to `127.0.0.1`.
 - Persistent QQ and NapCat data live under `/opt/napcat/data` on the server.
 - WebUI and OneBot tokens are stored outside the repository.
+- The optional fallback login credential is stored only in root-readable
+  `/opt/napcat/.env`; never commit it or send it through chat.
 - The container has a 1 GiB memory limit and rotating logs.
 
 The WebUI is accessed through an SSH tunnel during setup:
@@ -27,3 +29,33 @@ After the notification QQ account has logged in, run
 `deploy/configure-onebot.sh QQ_ACCOUNT_ID` as root. The script creates a private
 OneBot token, enables the HTTP API on container port `3001`, and restarts
 NapCat. The published host port remains restricted to `127.0.0.1` by Compose.
+
+## Automatic recovery
+
+QQNT can occasionally remain apparently online while `sendMsg` returns
+`1006514` (`网络连接异常`). The notifier writes a recovery request after three
+matching failures. `napcat-recovery.path` then starts a root-owned recovery
+service which:
+
+1. enforces a 30-minute restart cooldown;
+2. restarts NapCat;
+3. waits for OneBot login to recover; and
+4. restarts the notifier so its persistent queue drains immediately.
+
+Install the watcher with:
+
+```bash
+sudo ./deploy/install-recovery.sh ./deploy
+```
+
+Automatic login requires `NAPCAT_QUICK_PASSWORD_MD5`. Configure it from the
+operator's Windows computer without printing or uploading the plaintext:
+
+```powershell
+.\deploy\set-quick-password.ps1 -SshKeyPath 'D:\path\to\key.pem'
+```
+
+The script prompts locally, hashes the password in memory, and sends only the
+password-equivalent MD5 over SSH standard input. Tencent may still require a
+captcha or new-device confirmation; those checks must be completed manually in
+WebUI and are intentionally not bypassed.

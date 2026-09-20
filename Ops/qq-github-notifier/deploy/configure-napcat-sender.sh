@@ -16,6 +16,7 @@ jq --argjson group_id "$group_id" '
   | .onebotTokenPath = "/etc/qq-github-notifier/onebot-token"
   | .onebotGroupId = $group_id
   | .reportTimeZone = "Asia/Shanghai"
+  | .recoveryRequestPath = "/var/lib/qq-github-notifier/napcat-recovery.request"
 ' "$config_path" > "$temporary_path"
 
 chown --reference="$config_path" "$temporary_path"

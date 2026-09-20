@@ -1,0 +1,11 @@
+[Unit]
+Description=Recover NapCat QQ session after transport failures
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/napcat/recover-napcat.sh
+TimeoutStartSec=180
+Nice=10
+

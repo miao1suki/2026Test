@@ -10,5 +10,6 @@
   "onebotBaseUrl": "http://127.0.0.1:3001",
   "onebotTokenPath": "/etc/qq-github-notifier/onebot-token",
   "onebotGroupId": 123456789,
-  "reportTimeZone": "Asia/Shanghai"
+  "reportTimeZone": "Asia/Shanghai",
+  "recoveryRequestPath": "/var/lib/qq-github-notifier/napcat-recovery.request"
 }
