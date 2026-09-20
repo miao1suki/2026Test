@@ -19,9 +19,35 @@ try {
     $hashBytes = $md5.ComputeHash($passwordBytes)
     $passwordMd5 = [BitConverter]::ToString($hashBytes).Replace("-", "").ToLowerInvariant()
 
-    $passwordMd5 | & ssh.exe -i $SshKeyPath -o StrictHostKeyChecking=accept-new `
-        $Server "sudo /opt/napcat/configure-quick-password.sh"
-    if ($LASTEXITCODE -ne 0) {
+    $sshStartInfo = New-Object Diagnostics.ProcessStartInfo
+    $sshStartInfo.FileName = "ssh.exe"
+    $sshStartInfo.Arguments = "-i `"$SshKeyPath`" -o StrictHostKeyChecking=accept-new $Server `"sudo /opt/napcat/configure-quick-password.sh`""
+    $sshStartInfo.UseShellExecute = $false
+    $sshStartInfo.CreateNoWindow = $true
+    $sshStartInfo.RedirectStandardInput = $true
+    $sshStartInfo.RedirectStandardOutput = $true
+    $sshStartInfo.RedirectStandardError = $true
+    $sshStartInfo.StandardInputEncoding = [Text.Encoding]::ASCII
+
+    $sshProcess = New-Object Diagnostics.Process
+    $sshProcess.StartInfo = $sshStartInfo
+    [void]$sshProcess.Start()
+    $sshProcess.StandardInput.NewLine = "`n"
+    $sshProcess.StandardInput.WriteLine($passwordMd5)
+    $sshProcess.StandardInput.Close()
+    $sshOutput = $sshProcess.StandardOutput.ReadToEnd()
+    $sshError = $sshProcess.StandardError.ReadToEnd()
+    $sshProcess.WaitForExit()
+    $sshExitCode = $sshProcess.ExitCode
+    $sshProcess.Dispose()
+
+    if ($sshOutput) {
+        Write-Host ($sshOutput.Trim())
+    }
+    if ($sshExitCode -ne 0) {
+        if ($sshError) {
+            Write-Error ($sshError.Trim())
+        }
         throw "Server rejected the fallback credential configuration."
     }
 }
