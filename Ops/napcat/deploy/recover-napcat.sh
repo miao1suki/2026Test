@@ -2,6 +2,7 @@
 set -euo pipefail
 
 request_path=/var/lib/qq-github-notifier/napcat-recovery.request
+alerted_path=/var/lib/qq-github-notifier/napcat-manual-login.alerted
 runtime_directory=/var/lib/napcat-recovery
 last_attempt_path=$runtime_directory/last-attempt
 env_path=/opt/napcat/.env
@@ -10,11 +11,19 @@ cooldown_seconds=1800
 
 notify_manual_login() {
   local reason=$1
+  if [[ -e "$alerted_path" ]]; then
+    echo "NapCat manual-login email was already sent for this outage."
+    return
+  fi
   if [[ -x /opt/napcat/send-recovery-email.py && -s /etc/napcat-alert/email.json ]]; then
-    /opt/napcat/send-recovery-email.py \
+    if /opt/napcat/send-recovery-email.py \
       --event recovery-failed \
-      --reason "$reason" \
-      || echo "NapCat recovery email could not be sent." >&2
+      --reason "$reason"; then
+      touch "$alerted_path"
+      chmod 0600 "$alerted_path"
+    else
+      echo "NapCat recovery email could not be sent." >&2
+    fi
   else
     echo "NapCat recovery email is not configured." >&2
   fi
@@ -53,6 +62,7 @@ for _ in $(seq 1 60); do
       http://127.0.0.1:3001/get_login_info 2>/dev/null)" \
       && jq -e '.status == "ok" and .retcode == 0' >/dev/null <<<"$response"; then
     echo "NapCat login recovered; restarting the notifier to drain its queue."
+    rm -f "$alerted_path"
     systemctl restart qq-github-notifier.service
     exit 0
   fi

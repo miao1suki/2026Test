@@ -1,0 +1,10 @@
+[Unit]
+Description=Check NapCat QQ login health
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/napcat/check-napcat-health.sh
+TimeoutStartSec=30
+Nice=10

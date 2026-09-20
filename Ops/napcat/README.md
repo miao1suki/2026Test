@@ -34,8 +34,9 @@ NapCat. The published host port remains restricted to `127.0.0.1` by Compose.
 
 QQNT can occasionally remain apparently online while `sendMsg` returns
 `1006514` (`网络连接异常`). The notifier writes a recovery request after three
-matching failures. `napcat-recovery.path` then starts a root-owned recovery
-service which:
+matching failures. A server-side timer also checks OneBot login health every two
+minutes and confirms failures twice, 10 seconds apart. Either signal causes
+`napcat-recovery.path` to start a root-owned recovery service which:
 
 1. enforces a 30-minute restart cooldown;
 2. restarts NapCat;
@@ -64,9 +65,10 @@ WebUI and are intentionally not bypassed.
 
 Successful automatic recovery is silent. If the fallback credential is absent,
 or NapCat still has not logged in 120 seconds after a recovery restart, the
-server sends one email explaining that WebUI login is required. The existing
-30-minute recovery cooldown and the notifier's persistent queue prevent alert
-spam and preserve Git notifications until login returns.
+server sends one email explaining that WebUI login is required. The server marks
+that outage as alerted and remains silent until a healthy login is observed.
+The existing 30-minute recovery cooldown and the notifier's persistent queue
+prevent restart spam and preserve Git notifications until login returns.
 
 The setup helper supports QQ Mail, 163 Mail, and Gmail SMTP presets. Run it on
 the operator's Windows computer:
