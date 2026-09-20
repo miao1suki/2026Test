@@ -8,12 +8,25 @@ env_path=/opt/napcat/.env
 token_path=/etc/qq-github-notifier/onebot-token
 cooldown_seconds=1800
 
+notify_manual_login() {
+  local reason=$1
+  if [[ -x /opt/napcat/send-recovery-email.py && -s /etc/napcat-alert/email.json ]]; then
+    /opt/napcat/send-recovery-email.py \
+      --event recovery-failed \
+      --reason "$reason" \
+      || echo "NapCat recovery email could not be sent." >&2
+  else
+    echo "NapCat recovery email is not configured." >&2
+  fi
+}
+
 exec 9>/run/lock/napcat-recovery.lock
 flock -n 9 || exit 0
 rm -f "$request_path"
 
 if ! grep -Eq '^NAPCAT_QUICK_PASSWORD_MD5=[[:xdigit:]]{32}$' "$env_path"; then
   echo "NapCat recovery skipped: no root-only quick-login credential is configured." >&2
+  notify_manual_login "服务器未配置可用的 NapCat 回退登录凭据。"
   exit 0
 fi
 
@@ -47,4 +60,5 @@ for _ in $(seq 1 60); do
 done
 
 echo "NapCat did not recover automatically; WebUI verification is required." >&2
+notify_manual_login "自动重启后 120 秒内仍未恢复登录，可能需要验证码或设备确认。"
 exit 1

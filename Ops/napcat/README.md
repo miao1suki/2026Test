@@ -59,3 +59,29 @@ The script prompts locally, hashes the password in memory, and sends only the
 password-equivalent MD5 over SSH standard input. Tencent may still require a
 captcha or new-device confirmation; those checks must be completed manually in
 WebUI and are intentionally not bypassed.
+
+## Failed-recovery email alert
+
+Successful automatic recovery is silent. If the fallback credential is absent,
+or NapCat still has not logged in 120 seconds after a recovery restart, the
+server sends one email explaining that WebUI login is required. The existing
+30-minute recovery cooldown and the notifier's persistent queue prevent alert
+spam and preserve Git notifications until login returns.
+
+The setup helper supports QQ Mail, 163 Mail, and Gmail SMTP presets. Run it on
+the operator's Windows computer:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File `
+  '.\deploy\set-email-alert.ps1' `
+  -Provider QQ `
+  -Recipient 'operator@example.com' `
+  -SshKeyPath 'D:\path\to\key.pem'
+```
+
+The helper prompts for the sender address and its SMTP authorization code or app
+password, sends a test email, and installs the configuration only if the test
+succeeds. Unlike the QQ quick-login hash, SMTP credentials must remain available
+to the mail client. They are stored only in root-readable
+`/etc/napcat-alert/email.json` (directory mode `0700`, file mode `0600`) and must
+never be committed or pasted into chat.
