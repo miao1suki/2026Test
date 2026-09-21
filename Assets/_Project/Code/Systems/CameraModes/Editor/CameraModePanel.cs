@@ -29,6 +29,7 @@ namespace Project.CameraModes.Editor
 
         private CameraModeController activeController;
         private SerializedObject boundController;
+        private SerializedObject boundManager;
 
         public CameraModePanel()
         {
@@ -391,6 +392,22 @@ namespace Project.CameraModes.Editor
                 return;
             }
 
+            if (Application.isPlaying && !activeController.HasControl)
+            {
+                statusBadge.text = "演出接管";
+                statusBadge.style.backgroundColor = subtleColor;
+                statusBadge.style.color = StyleKeyword.Null;
+                string activeName = activeController.Manager != null
+                    ? activeController.Manager.ActiveControlName
+                    : null;
+                statusDetail.text = string.IsNullOrEmpty(activeName)
+                    ? "当前模式请求正在等待控制权"
+                    : $"当前控制者：{activeName}；模式请求会在释放后生效";
+                side2DButton.style.backgroundColor = idleButtonColor;
+                perspective3DButton.style.backgroundColor = idleButtonColor;
+                return;
+            }
+
             CameraViewMode mode = activeController.IsTransitioning
                 ? activeController.TargetMode
                 : activeController.CurrentMode;
@@ -414,6 +431,7 @@ namespace Project.CameraModes.Editor
             settingsContent.Unbind();
             settingsContent.Clear();
             boundController = null;
+            boundManager = null;
 
             if (activeController == null)
             {
@@ -428,22 +446,32 @@ namespace Project.CameraModes.Editor
             }
 
             boundController = new SerializedObject(activeController);
-            AddBoundProperty("fallbackFocusPoint", "无目标时的观察点");
-            AddBoundProperty("side2D", "2D 平台视角");
-            AddBoundProperty("perspective3D", "3D 俯视视角");
-            AddBoundProperty("transition", "切换动画");
-            AddBoundProperty("followSmoothTime", "跟随平滑时间");
-            settingsContent.Bind(boundController);
+            boundManager = activeController.Manager != null
+                ? new SerializedObject(activeController.Manager)
+                : null;
+            AddBoundProperty(boundManager, "fallbackFocusPoint", "无目标时的观察点");
+            AddBoundProperty(boundController, "side2D", "2D 平台视角");
+            AddBoundProperty(boundController, "perspective3D", "3D 俯视视角");
+            AddBoundProperty(boundController, "transition", "切换动画");
         }
 
-        private void AddBoundProperty(string propertyName, string label)
+        private void AddBoundProperty(
+            SerializedObject serializedTarget,
+            string propertyName,
+            string label)
         {
-            SerializedProperty property = boundController.FindProperty(propertyName);
+            if (serializedTarget == null)
+            {
+                return;
+            }
+
+            SerializedProperty property = serializedTarget.FindProperty(propertyName);
             if (property != null)
             {
                 PropertyField field = new PropertyField(property, label);
                 field.style.marginTop = 2f;
                 settingsContent.Add(field);
+                field.BindProperty(property);
             }
         }
 
@@ -476,11 +504,19 @@ namespace Project.CameraModes.Editor
                 controller = Undo.AddComponent<CameraModeController>(camera.gameObject);
             }
 
+            CameraControlManager manager = camera.GetComponent<CameraControlManager>();
+            if (manager == null)
+            {
+                manager = Undo.AddComponent<CameraControlManager>(camera.gameObject);
+            }
+
             Undo.RecordObject(controller, "Configure Camera Mode Controller");
+            Undo.RecordObject(manager, "Configure Camera Control Manager");
             Undo.RecordObject(camera, "Configure Camera Mode Controller");
             Undo.RecordObject(camera.transform, "Configure Camera Mode Controller");
             controller.Configure(camera, followTargetField.value as Transform, true);
             EditorUtility.SetDirty(controller);
+            EditorUtility.SetDirty(manager);
             EditorUtility.SetDirty(camera);
             EditorUtility.SetDirty(camera.transform);
             MarkSceneDirty(camera.gameObject);

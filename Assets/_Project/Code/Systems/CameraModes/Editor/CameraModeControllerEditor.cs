@@ -8,27 +8,23 @@ namespace Project.CameraModes.Editor
     [CanEditMultipleObjects]
     public sealed class CameraModeControllerEditor : UnityEditor.Editor
     {
-        private SerializedProperty controlledCamera;
-        private SerializedProperty followTarget;
-        private SerializedProperty fallbackFocusPoint;
+        private SerializedProperty cameraManager;
+        private SerializedProperty controlPriority;
         private SerializedProperty initialMode;
         private SerializedProperty side2D;
         private SerializedProperty perspective3D;
         private SerializedProperty transition;
-        private SerializedProperty followSmoothTime;
         private SerializedProperty onTransitionStarted;
         private SerializedProperty onModeChanged;
 
         private void OnEnable()
         {
-            controlledCamera = serializedObject.FindProperty("controlledCamera");
-            followTarget = serializedObject.FindProperty("followTarget");
-            fallbackFocusPoint = serializedObject.FindProperty("fallbackFocusPoint");
+            cameraManager = serializedObject.FindProperty("cameraManager");
+            controlPriority = serializedObject.FindProperty("controlPriority");
             initialMode = serializedObject.FindProperty("initialMode");
             side2D = serializedObject.FindProperty("side2D");
             perspective3D = serializedObject.FindProperty("perspective3D");
             transition = serializedObject.FindProperty("transition");
-            followSmoothTime = serializedObject.FindProperty("followSmoothTime");
             onTransitionStarted = serializedObject.FindProperty("onTransitionStarted");
             onModeChanged = serializedObject.FindProperty("onModeChanged");
         }
@@ -41,11 +37,11 @@ namespace Project.CameraModes.Editor
                 "2D 使用平视正交相机；3D 使用无左右偏移的斜上方透视相机。运行时切换可被反向打断。",
                 MessageType.Info);
 
-            DrawSection("引用", controlledCamera, followTarget, fallbackFocusPoint);
+            DrawSection("统一控制", cameraManager, controlPriority);
             DrawSection("启动模式", initialMode);
             DrawSection("2D 平台视角", side2D);
             DrawSection("3D 俯视视角", perspective3D);
-            DrawSection("切换与跟随", transition, followSmoothTime);
+            DrawSection("模式切换", transition);
             DrawSection("事件", onTransitionStarted, onModeChanged);
 
             serializedObject.ApplyModifiedProperties();
@@ -88,6 +84,10 @@ namespace Project.CameraModes.Editor
                 EditorGUILayout.EnumPopup("目标模式", controller.TargetMode);
                 EditorGUILayout.Toggle("正在切换", controller.IsTransitioning);
                 EditorGUILayout.Slider("切换进度", controller.NormalizedTransitionTime, 0f, 1f);
+                EditorGUILayout.Toggle("持有控制权", controller.HasControl);
+                EditorGUILayout.TextField(
+                    "当前控制者",
+                    controller.Manager != null ? controller.Manager.ActiveControlName : "无 Manager");
             }
         }
 

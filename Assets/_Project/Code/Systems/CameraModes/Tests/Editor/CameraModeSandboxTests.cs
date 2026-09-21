@@ -21,6 +21,8 @@ namespace Project.CameraModes.Tests
                 .Single();
 
             Assert.That(controller.ControlledCamera, Is.Not.Null);
+            Assert.That(controller.Manager, Is.Not.Null);
+            Assert.That(controller.Manager.OutputCamera, Is.SameAs(controller.ControlledCamera));
             Assert.That(controller.FollowTarget, Is.Not.Null);
             Assert.That(controller.FollowTarget.name, Is.EqualTo("CameraFollowTarget"));
             Assert.That(
