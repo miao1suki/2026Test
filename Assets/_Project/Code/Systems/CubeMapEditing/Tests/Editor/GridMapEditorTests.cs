@@ -1,5 +1,7 @@
+using System.Linq;
 using NUnit.Framework;
 using Project.CubeMapEditing.Editor;
+using UnityEditor;
 using UnityEngine;
 
 namespace Project.CubeMapEditing.Tests
@@ -105,6 +107,38 @@ namespace Project.CubeMapEditing.Tests
             Assert.That(position.y, Is.EqualTo(-1f).Within(0.0001f));
             Object.DestroyImmediate(pieceObject);
             Object.DestroyImmediate(workspace);
+        }
+
+        [Test]
+        public void SamplePalette_ContainsUsableTestPrefabs()
+        {
+            const string palettePath =
+                "Assets/_Project/Content/Data/MapItems/LV001_GridMapPalette.asset";
+            GridMapPalette palette =
+                AssetDatabase.LoadAssetAtPath<GridMapPalette>(palettePath);
+
+            Assert.That(palette, Is.Not.Null);
+            Assert.That(palette.Items.Count, Is.GreaterThanOrEqualTo(5));
+
+            string[] expectedNames =
+            {
+                "单格地板",
+                "双格地板",
+                "双格墙",
+                "方块障碍",
+                "菱形障碍",
+            };
+
+            foreach (string expectedName in expectedNames)
+            {
+                GridMapItemDefinition definition = palette.Items.FirstOrDefault(
+                    item => item != null && item.DisplayName == expectedName);
+                Assert.That(definition, Is.Not.Null, $"缺少测试物品：{expectedName}");
+                Assert.That(definition.Prefab, Is.Not.Null, $"{expectedName} 未绑定预制体");
+                Assert.That(
+                    AssetDatabase.GetAssetPath(definition.Prefab),
+                    Does.StartWith("Assets/_Project/Content/Prefabs/MapItems/"));
+            }
         }
     }
 }
