@@ -8,3 +8,4 @@ this directory for runtime assets.
 - [Unified camera control manager](CAMERA_CONTROL_MANAGER.md)
 - [Cube map editor](CUBE_MAP_EDITOR.md)
 - [Grid map editor](GRID_MAP_EDITOR.md)
+- [Timeline camera integration](TIMELINE_CAMERA_INTEGRATION.md)

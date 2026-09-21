@@ -88,6 +88,18 @@ namespace Project.CameraModes.Tests
         }
 
         [Test]
+        public void RepeatingSameTargetModeImmediately_CompletesTransition()
+        {
+            controller.SwitchMode(CameraViewMode.Perspective3D);
+            controller.Tick(0.2f);
+
+            controller.SwitchTo3D(true);
+
+            Assert.That(controller.IsTransitioning, Is.False);
+            Assert.That(controller.CurrentMode, Is.EqualTo(CameraViewMode.Perspective3D));
+        }
+
+        [Test]
         public void SnapToMode_NotifiesExactlyOnceWhenRequested()
         {
             int notificationCount = 0;

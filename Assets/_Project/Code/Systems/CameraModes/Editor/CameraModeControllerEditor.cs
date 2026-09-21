@@ -34,7 +34,9 @@ namespace Project.CameraModes.Editor
             serializedObject.Update();
 
             EditorGUILayout.HelpBox(
-                "2D 使用平视正交相机；3D 使用无左右偏移的斜上方透视相机。运行时切换可被反向打断。",
+                "2D 使用平视正交相机；3D 使用可环绕的透视相机，可由鼠标输入调用 RotatePerspective 与 SetPerspectiveAngles。" +
+                "运行时切换通过 ICameraViewModeSwitcher 的 SwitchTo2D / SwitchTo3D / ToggleMode 调用，并可被反向打断。" +
+                "immediate=true 时会强制完成当前目标模式的切换。",
                 MessageType.Info);
 
             DrawSection("统一控制", cameraManager, controlPriority);
