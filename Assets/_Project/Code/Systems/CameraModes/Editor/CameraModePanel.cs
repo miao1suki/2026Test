@@ -8,6 +8,8 @@ namespace Project.CameraModes.Editor
 {
     internal sealed class CameraModePanel : VisualElement
     {
+        private const string TransitionPreviewPreference =
+            "2026Test.CameraModes.PreviewTransition";
         private static readonly Color Accent2D = new Color(0.12f, 0.55f, 0.95f, 1f);
         private static readonly Color Accent3D = new Color(0.54f, 0.34f, 0.92f, 1f);
 
@@ -19,6 +21,7 @@ namespace Project.CameraModes.Editor
         private readonly Button configureButton;
         private readonly Button side2DButton;
         private readonly Button perspective3DButton;
+        private readonly Toggle previewTransitionToggle;
         private readonly Button locateButton;
         private readonly Label statusBadge;
         private readonly Label statusDetail;
@@ -82,13 +85,23 @@ namespace Project.CameraModes.Editor
             bindingCard.Add(configureButton);
             Add(bindingCard);
 
-            VisualElement previewCard = CreateCard("视角预览", "编辑态立即预览，运行时播放过渡动画");
+            VisualElement previewCard = CreateCard("视角预览", "可在编辑态直接检查切换动画和构图");
             VisualElement modeRow = CreateRow();
             side2DButton = CreateModeButton("2D  平台", "正交 · 平视", Accent2D, CameraViewMode.Side2D);
             perspective3DButton = CreateModeButton("3D  俯视", "透视 · 斜上方", Accent3D, CameraViewMode.Perspective3D);
             modeRow.Add(side2DButton);
             modeRow.Add(perspective3DButton);
             previewCard.Add(modeRow);
+
+            previewTransitionToggle = new Toggle("切换预览时启用过渡")
+            {
+                value = EditorPrefs.GetBool(TransitionPreviewPreference, true),
+                tooltip = "关闭后，编辑态点击模式按钮会立即跳到目标构图"
+            };
+            previewTransitionToggle.style.marginTop = 5f;
+            previewTransitionToggle.RegisterValueChangedCallback(evt =>
+                EditorPrefs.SetBool(TransitionPreviewPreference, evt.newValue));
+            previewCard.Add(previewTransitionToggle);
 
             statusDetail = new Label();
             statusDetail.style.marginTop = 7f;
@@ -495,6 +508,11 @@ namespace Project.CameraModes.Editor
             if (Application.isPlaying)
             {
                 activeController.SwitchMode(mode);
+            }
+            else if (previewTransitionToggle.value)
+            {
+                CameraModeEditPreviewDriver.StartTransition(activeController, mode);
+                MarkSceneDirty(activeController.gameObject);
             }
             else
             {
