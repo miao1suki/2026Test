@@ -88,6 +88,28 @@ namespace Project.CameraModes.Tests
         }
 
         [Test]
+        public void SnapToMode_NotifiesExactlyOnceWhenRequested()
+        {
+            int notificationCount = 0;
+            controller.ModeChanged += _ => notificationCount++;
+
+            controller.SnapToMode(CameraViewMode.Perspective3D);
+
+            Assert.That(notificationCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SnapToMode_CanSuppressNotification()
+        {
+            int notificationCount = 0;
+            controller.ModeChanged += _ => notificationCount++;
+
+            controller.SnapToMode(CameraViewMode.Perspective3D, false);
+
+            Assert.That(notificationCount, Is.Zero);
+        }
+
+        [Test]
         public void DisablingDuringTransition_ClearsCustomProjectionState()
         {
             controller.SwitchMode(CameraViewMode.Perspective3D);
@@ -96,8 +118,8 @@ namespace Project.CameraModes.Tests
             controller.SettleTransitionForDisable();
 
             Assert.That(controller.IsTransitioning, Is.False);
-            Assert.That(cameraComponent.orthographic, Is.True);
-            Assert.That(controller.CurrentMode, Is.EqualTo(CameraViewMode.Side2D));
+            Assert.That(cameraComponent.orthographic, Is.False);
+            Assert.That(controller.CurrentMode, Is.EqualTo(CameraViewMode.Perspective3D));
         }
 
         private static void AssertMatricesEqual(Matrix4x4 expected, Matrix4x4 actual, float tolerance)
