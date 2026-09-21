@@ -55,6 +55,7 @@ public class TimelineCamRig : MonoBehaviour, ICameraControlSource
     private bool _hasNormalState;
     private bool _hasShotState;
     private int _activeTracks;
+    private float _planarYaw;
 
     public string CameraControlName => "Timeline Camera";
 
@@ -88,6 +89,8 @@ public class TimelineCamRig : MonoBehaviour, ICameraControlSource
     public float ReturnTransitionDuration => returnTransitionDuration;
 
     public bool SmoothReturnOnRelease { get; private set; } = true;
+
+    public float PlanarYaw => _planarYaw;
 
     public bool CanManualDrive =>
         isPlayingAnim &&
@@ -164,6 +167,13 @@ public class TimelineCamRig : MonoBehaviour, ICameraControlSource
             return;
         }
 
+        if (_activeTracks > 0)
+        {
+            Debug.LogWarning(
+                "[TimelineCamRig] 多条 CameraTimelineTrack 正在同时控制同一相机，请确保同一时间只有一条相机轨道生效。",
+                this);
+        }
+
         CaptureNormalState();
         if (_activeTracks == 0)
         {
@@ -211,6 +221,11 @@ public class TimelineCamRig : MonoBehaviour, ICameraControlSource
         _hasNormalState = false;
     }
 
+    public void SetPlanarYaw(float yaw)
+    {
+        _planarYaw = Mathf.Repeat(yaw + 180f, 360f) - 180f;
+    }
+
     public void SetShotTransform(
         Vector3 position,
         Quaternion rotation,
@@ -228,19 +243,28 @@ public class TimelineCamRig : MonoBehaviour, ICameraControlSource
         CameraProjectionMode nextProjection = overrideProjection
             ? MapProjection(projection)
             : _shotState.projection;
+        float nextOrthographicSize = overrideProjection
+            ? Mathf.Max(0.01f, orthographicSize)
+            : _shotState.orthographicSize;
+        float nextFieldOfView = overrideProjection
+            ? Mathf.Clamp(fieldOfView, 1f, 179f)
+            : _shotState.fieldOfView;
         bool projectionChanged = nextProjection != _shotState.projection;
+        bool lensChanged =
+            !Mathf.Approximately(nextOrthographicSize, _shotState.orthographicSize) ||
+            !Mathf.Approximately(nextFieldOfView, _shotState.fieldOfView);
 
         _shotState.position = position;
         _shotState.rotation = rotation;
         _shotState.projection = nextProjection;
         if (overrideProjection)
         {
-            _shotState.orthographicSize = Mathf.Max(0.01f, orthographicSize);
-            _shotState.fieldOfView = Mathf.Clamp(fieldOfView, 1f, 179f);
+            _shotState.orthographicSize = nextOrthographicSize;
+            _shotState.fieldOfView = nextFieldOfView;
         }
         _hasShotState = true;
 
-        if (projectionChanged && _controlHandle.IsValid)
+        if ((projectionChanged || lensChanged) && _controlHandle.IsValid)
         {
             CameraTransition transition = transitionDuration > 0f
                 ? CameraTransition.Ease(transitionDuration)

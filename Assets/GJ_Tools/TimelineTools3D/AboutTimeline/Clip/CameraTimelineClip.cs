@@ -27,6 +27,16 @@ public enum TimelineCameraProjection
     Perspective
 }
 
+public enum Camera2DTurnTiming
+{
+    [InspectorName("不处理")]
+    None,
+    [InspectorName("片段开始时转向")]
+    AtClipStart,
+    [InspectorName("片段结束时转向")]
+    AtClipEnd
+}
+
 public class CameraTimelineClip : PlayableAsset
 {
     [Header("镜头移动总模式")]
@@ -48,6 +58,14 @@ public class CameraTimelineClip : PlayableAsset
     public float surroundTotalAngle = 180f;
     [Tooltip("环绕圆心的高度(相对角色脚底)")]
     public float surroundFixedHeight = 1.2f;
+    [Tooltip("使用曲线控制环绕半径倍率；1=surroundRadius")]
+    public bool useSurroundRadiusCurve;
+    [Tooltip("X=片段进度，Y=半径倍率")]
+    public AnimationCurve surroundRadiusCurve = AnimationCurve.Linear(0f, 1f, 1f, 1f);
+    [Tooltip("使用曲线控制环绕高度倍率；1=surroundFixedHeight")]
+    public bool useSurroundHeightCurve;
+    [Tooltip("X=片段进度，Y=高度倍率")]
+    public AnimationCurve surroundHeightCurve = AnimationCurve.Linear(0f, 1f, 1f, 1f);
 
     [Header("目标机位参数")]
     [Tooltip("目标机位坐标(相对角色，角色转身目标会跟着走)")]
@@ -70,6 +88,16 @@ public class CameraTimelineClip : PlayableAsset
     [Range(1f, 179f)] public float fieldOfView = 50f;
     [Tooltip("投影模式切换时交给 Project CameraControlManager 的过渡时间")]
     [Min(0f)] public float projectionTransitionDuration = 0.4f;
+
+    [Header("2D 平面转向")]
+    [Tooltip("正交 2D 下可选择在片段开始或结束时围绕目标做平面转向")]
+    public Camera2DTurnTiming turnTiming = Camera2DTurnTiming.None;
+    [Tooltip("平面右手方向为正，90 表示向右转一个面")]
+    public float turnAngleDegrees = 90f;
+    [Tooltip("单次转向持续时间")]
+    [Min(0.01f)] public float turnDuration = 0.6f;
+    [Tooltip("转向速度曲线，X=转向时间进度，Y=角度进度")]
+    public AnimationCurve turnCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
 
     [Header("2D 正交轴约束")]
     [Tooltip("仅在目标投影为正交时限制相机位置；适合 2D 侧视或固定纵深关卡")]
@@ -94,6 +122,12 @@ public class CameraTimelineClip : PlayableAsset
     [Tooltip("平滑跟手的插值系数(越大越跟手)")]
     public float smoothLerpFactor = 10f;
 
+    [Header("运动曲线")]
+    [Tooltip("用曲线控制归一化进度；适合非匀速的推拉、平移和环绕")]
+    public bool useMotionCurve;
+    [Tooltip("X=时间进度，Y=运动进度")]
+    public AnimationCurve motionCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+
     [Header("变速插值设置")]
     [Tooltip("启用变速(起/终点速度线性过渡)")]
     public bool useVariableSpeed = false;
@@ -103,14 +137,8 @@ public class CameraTimelineClip : PlayableAsset
     public float endSpeed = 3f;
 
     [Header("以上一帧相机位置为本段起点")]
-    [Tooltip("多段运镜衔接：勾选后以片段开始时的相机位置为插值起点，不做归位；连续运镜建议开启")]
+    [Tooltip("连续运镜：勾选后以片段开始时的相机位置为插值起点，不做归位")]
     public bool useLastFrameAsOrigin;
-
-    [Header("片段结束与手动接管")]
-    [Tooltip("轨道结束后平滑交还 Project 玩法相机；关闭时立即交还")]
-    public bool restoreOriginOnEnd = true;
-    [Tooltip("本段播放期间允许手动拖动视角(拖动时本段暂停写入，停止输入后从当前机位继续；建议配合“以上一帧为起点”使用)")]
-    public bool allowManualCamera = false;
 
     public override Playable CreatePlayable(PlayableGraph graph, GameObject owner)
     {

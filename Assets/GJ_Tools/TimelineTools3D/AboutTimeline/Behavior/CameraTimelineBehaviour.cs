@@ -8,16 +8,17 @@ public class CameraTimelineBehaviour : PlayableBehaviour
 
     private TimelineCamRig _rig;
     private bool _inited;
-    private bool _rigSearched;
     private bool _warned;
     private Vector3 _originWorldPos;
     private Quaternion _originWorldRot;
+    private float _planarYawAtClipStart;
+    private float _surroundStartAngle;
 
     public override void OnBehaviourPlay(Playable playable, FrameData info)
     {
         _inited = false;
-        _rigSearched = false;
         _warned = false;
+        _planarYawAtClipStart = 0f;
     }
 
     public override void ProcessFrame(Playable playable, FrameData info, object playerData)
@@ -28,11 +29,6 @@ public class CameraTimelineBehaviour : PlayableBehaviour
         }
 
         TimelineCamRig rig = playerData as TimelineCamRig;
-        if (rig == null && !_rigSearched)
-        {
-            _rigSearched = true;
-            rig = Object.FindFirstObjectByType<TimelineCamRig>();
-        }
         if (rig == null)
         {
             if (!_warned)
@@ -44,8 +40,6 @@ public class CameraTimelineBehaviour : PlayableBehaviour
         }
 
         _rig = rig;
-        rig.userManualAllowed = clip.allowManualCamera;
-        rig.SetReturnMode(clip.restoreOriginOnEnd);
 
         float totalDuration = (float)playable.GetDuration();
         if (totalDuration <= 0.0001f)
@@ -57,11 +51,20 @@ public class CameraTimelineBehaviour : PlayableBehaviour
         {
             _inited = true;
             rig.CaptureNormalState();
+            _planarYawAtClipStart = rig.PlanarYaw;
             if (!clip.useLastFrameAsOrigin)
             {
                 _originWorldPos = rig.CurrentPosition;
                 _originWorldRot = rig.CurrentRotation;
             }
+
+            Transform surroundAnchor = rig.AnchorTransform;
+            Vector3 surroundOrigin = rig.CurrentPosition -
+                                     surroundAnchor.position;
+            surroundOrigin.y = 0f;
+            _surroundStartAngle =
+                Mathf.Atan2(surroundOrigin.x, surroundOrigin.z) *
+                Mathf.Rad2Deg;
         }
 
         if (rig.userDriving)
@@ -108,9 +111,22 @@ public class CameraTimelineBehaviour : PlayableBehaviour
         float baseProgress = clip.useVariableSpeed
             ? GetProgress(currentTime, totalDuration, clip.startSpeed, clip.endSpeed)
             : Mathf.Clamp01(currentTime / totalDuration);
+        if (clip.useMotionCurve && clip.motionCurve != null)
+        {
+            baseProgress = Mathf.Clamp01(clip.motionCurve.Evaluate(baseProgress));
+        }
 
-        Vector3 worldTargetPosition = anchor.TransformPoint(clip.cameraTargetLocalPos);
-        Quaternion worldTargetRotation = anchor.rotation * Quaternion.Euler(clip.cameraTargetEuler);
+        float planarTurnAngle = EvaluatePlanarYaw(
+            rig,
+            currentTime,
+            totalDuration);
+        Quaternion planarTurn = Quaternion.Euler(0f, planarTurnAngle, 0f);
+        Vector3 worldTargetPosition =
+            anchor.TransformPoint(planarTurn * clip.cameraTargetLocalPos);
+        Quaternion worldTargetRotation =
+            anchor.rotation *
+            planarTurn *
+            Quaternion.Euler(clip.cameraTargetEuler);
         Vector3 originPosition = clip.useLastFrameAsOrigin
             ? currentPosition
             : _originWorldPos;
@@ -126,19 +142,26 @@ public class CameraTimelineBehaviour : PlayableBehaviour
         else
         {
             Vector3 foot = anchor.position;
+            float radiusScale =
+                clip.useSurroundRadiusCurve && clip.surroundRadiusCurve != null
+                    ? clip.surroundRadiusCurve.Evaluate(baseProgress)
+                    : 1f;
+            float heightScale =
+                clip.useSurroundHeightCurve && clip.surroundHeightCurve != null
+                    ? clip.surroundHeightCurve.Evaluate(baseProgress)
+                    : 1f;
             Vector3 circleCenter = new Vector3(
                 foot.x,
-                foot.y + clip.surroundFixedHeight,
+                foot.y + clip.surroundFixedHeight * heightScale,
                 foot.z);
-            Vector3 originFlat = originPosition - foot;
-            originFlat.y = 0f;
-            float startAngle = Mathf.Atan2(originFlat.x, originFlat.z) * Mathf.Rad2Deg;
-            float currentAngle = startAngle + clip.surroundTotalAngle * baseProgress;
+            float currentAngle =
+                _surroundStartAngle +
+                clip.surroundTotalAngle * baseProgress;
             float radians = currentAngle * Mathf.Deg2Rad;
             finalTargetPosition = circleCenter + new Vector3(
-                Mathf.Sin(radians) * clip.surroundRadius,
+                Mathf.Sin(radians) * clip.surroundRadius * radiusScale,
                 0f,
-                Mathf.Cos(radians) * clip.surroundRadius);
+                Mathf.Cos(radians) * clip.surroundRadius * radiusScale);
         }
 
         Vector3 nextPosition;
@@ -152,20 +175,47 @@ public class CameraTimelineBehaviour : PlayableBehaviour
                 nextRotation = LookRotation(nextPosition, lookPoint, nextRotation);
             }
         }
+        else if (clip.useSurroundMode)
+        {
+            nextPosition = finalTargetPosition;
+            nextRotation = clip.lockLookAtPlayer
+                ? LookRotation(nextPosition, lookPoint, worldTargetRotation)
+                : worldTargetRotation;
+        }
         else
         {
-            Vector3 lerpPosition = Vector3.Lerp(originPosition, finalTargetPosition, baseProgress);
-            nextPosition = Vector3.Lerp(
-                currentPosition,
-                lerpPosition,
-                Mathf.Clamp01(clip.smoothLerpFactor * deltaTime));
-            Quaternion lerpRotation = Quaternion.Slerp(
-                originRotation,
-                worldTargetRotation,
-                baseProgress);
-            nextRotation = clip.lockLookAtPlayer
-                ? LookRotation(nextPosition, lookPoint, lerpRotation)
-                : lerpRotation;
+            if (clip.useMotionCurve)
+            {
+                nextPosition = Vector3.Lerp(
+                    originPosition,
+                    finalTargetPosition,
+                    baseProgress);
+                Quaternion curveRotation = Quaternion.Slerp(
+                    originRotation,
+                    worldTargetRotation,
+                    baseProgress);
+                nextRotation = clip.lockLookAtPlayer
+                    ? LookRotation(nextPosition, lookPoint, curveRotation)
+                    : curveRotation;
+            }
+            else
+            {
+                Vector3 lerpPosition = Vector3.Lerp(
+                    originPosition,
+                    finalTargetPosition,
+                    baseProgress);
+                nextPosition = Vector3.Lerp(
+                    currentPosition,
+                    lerpPosition,
+                    Mathf.Clamp01(clip.smoothLerpFactor * deltaTime));
+                Quaternion lerpRotation = Quaternion.Slerp(
+                    originRotation,
+                    worldTargetRotation,
+                    baseProgress);
+                nextRotation = clip.lockLookAtPlayer
+                    ? LookRotation(nextPosition, lookPoint, lerpRotation)
+                    : lerpRotation;
+            }
         }
 
         nextPosition = ApplyOrthographicConstraints(rig, nextPosition, originPosition);
@@ -180,7 +230,6 @@ public class CameraTimelineBehaviour : PlayableBehaviour
     {
         _rig = null;
         _inited = false;
-        _rigSearched = false;
         _warned = false;
     }
 
@@ -188,7 +237,6 @@ public class CameraTimelineBehaviour : PlayableBehaviour
     {
         _rig = null;
         _inited = false;
-        _rigSearched = false;
         _warned = false;
     }
 
@@ -207,6 +255,43 @@ public class CameraTimelineBehaviour : PlayableBehaviour
         float travel = startSpeed * currentTime +
                        (endSpeed - startSpeed) * currentTime * currentTime / (2f * duration);
         return Mathf.Clamp01(travel / totalDisplacement);
+    }
+
+    private float EvaluatePlanarYaw(
+        TimelineCamRig rig,
+        float currentTime,
+        float totalDuration)
+    {
+        if (clip == null ||
+            !clip.overrideProjection ||
+            clip.projection != TimelineCameraProjection.Orthographic)
+        {
+            return 0f;
+        }
+        if (clip.turnTiming == Camera2DTurnTiming.None)
+        {
+            return rig.PlanarYaw;
+        }
+
+        float duration = Mathf.Clamp(clip.turnDuration, 0.01f, totalDuration);
+        float localTime;
+        if (clip.turnTiming == Camera2DTurnTiming.AtClipStart)
+        {
+            localTime = currentTime;
+        }
+        else
+        {
+            localTime = currentTime - (totalDuration - duration);
+        }
+
+        float progress = Mathf.Clamp01(localTime / duration);
+        if (clip.turnCurve != null)
+        {
+            progress = Mathf.Clamp01(clip.turnCurve.Evaluate(progress));
+        }
+        float yaw = _planarYawAtClipStart + clip.turnAngleDegrees * progress;
+        rig.SetPlanarYaw(yaw);
+        return rig.PlanarYaw;
     }
 
     private static Quaternion LookRotation(
@@ -334,6 +419,10 @@ public class CameraTimelineMixerBehaviour : PlayableBehaviour
 
         if (hasActiveClip && !_hasControl)
         {
+            _rig.userManualAllowed =
+                track != null && track.allowManualCamera;
+            _rig.SetReturnMode(
+                track == null || track.restoreOriginOnEnd);
             _rig.Acquire(_rig.ReturnTransitionDuration);
             _hasControl = true;
         }

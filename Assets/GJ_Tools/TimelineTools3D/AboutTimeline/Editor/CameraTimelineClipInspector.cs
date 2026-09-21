@@ -11,6 +11,10 @@ public class CameraTimelineClipInspector : Editor
     private SerializedProperty surroundRadius;
     private SerializedProperty surroundTotalAngle;
     private SerializedProperty surroundFixedHeight;
+    private SerializedProperty useSurroundRadiusCurve;
+    private SerializedProperty surroundRadiusCurve;
+    private SerializedProperty useSurroundHeightCurve;
+    private SerializedProperty surroundHeightCurve;
     private SerializedProperty cameraTargetLocalPos;
     private SerializedProperty cameraTargetEuler;
     private SerializedProperty lockLookAtPlayer;
@@ -19,6 +23,12 @@ public class CameraTimelineClipInspector : Editor
     private SerializedProperty orthographicSize;
     private SerializedProperty fieldOfView;
     private SerializedProperty projectionTransitionDuration;
+    private SerializedProperty useMotionCurve;
+    private SerializedProperty motionCurve;
+    private SerializedProperty turnTiming;
+    private SerializedProperty turnAngleDegrees;
+    private SerializedProperty turnDuration;
+    private SerializedProperty turnCurve;
     private SerializedProperty constrainOrthographicAxes;
     private SerializedProperty allowPositionX;
     private SerializedProperty allowPositionY;
@@ -34,8 +44,6 @@ public class CameraTimelineClipInspector : Editor
     private SerializedProperty startSpeed;
     private SerializedProperty endSpeed;
     private SerializedProperty useLastFrameAsOrigin;
-    private SerializedProperty restoreOriginOnEnd;
-    private SerializedProperty allowManualCamera;
 
     private void OnEnable()
     {
@@ -46,6 +54,10 @@ public class CameraTimelineClipInspector : Editor
         surroundRadius = serializedObject.FindProperty("surroundRadius");
         surroundTotalAngle = serializedObject.FindProperty("surroundTotalAngle");
         surroundFixedHeight = serializedObject.FindProperty("surroundFixedHeight");
+        useSurroundRadiusCurve = serializedObject.FindProperty("useSurroundRadiusCurve");
+        surroundRadiusCurve = serializedObject.FindProperty("surroundRadiusCurve");
+        useSurroundHeightCurve = serializedObject.FindProperty("useSurroundHeightCurve");
+        surroundHeightCurve = serializedObject.FindProperty("surroundHeightCurve");
         cameraTargetLocalPos = serializedObject.FindProperty("cameraTargetLocalPos");
         cameraTargetEuler = serializedObject.FindProperty("cameraTargetEuler");
         lockLookAtPlayer = serializedObject.FindProperty("lockLookAtPlayer");
@@ -54,6 +66,12 @@ public class CameraTimelineClipInspector : Editor
         orthographicSize = serializedObject.FindProperty("orthographicSize");
         fieldOfView = serializedObject.FindProperty("fieldOfView");
         projectionTransitionDuration = serializedObject.FindProperty("projectionTransitionDuration");
+        useMotionCurve = serializedObject.FindProperty("useMotionCurve");
+        motionCurve = serializedObject.FindProperty("motionCurve");
+        turnTiming = serializedObject.FindProperty("turnTiming");
+        turnAngleDegrees = serializedObject.FindProperty("turnAngleDegrees");
+        turnDuration = serializedObject.FindProperty("turnDuration");
+        turnCurve = serializedObject.FindProperty("turnCurve");
         constrainOrthographicAxes = serializedObject.FindProperty("constrainOrthographicAxes");
         allowPositionX = serializedObject.FindProperty("allowPositionX");
         allowPositionY = serializedObject.FindProperty("allowPositionY");
@@ -69,8 +87,6 @@ public class CameraTimelineClipInspector : Editor
         startSpeed = serializedObject.FindProperty("startSpeed");
         endSpeed = serializedObject.FindProperty("endSpeed");
         useLastFrameAsOrigin = serializedObject.FindProperty("useLastFrameAsOrigin");
-        restoreOriginOnEnd = serializedObject.FindProperty("restoreOriginOnEnd");
-        allowManualCamera = serializedObject.FindProperty("allowManualCamera");
     }
 
     public override void OnInspectorGUI()
@@ -95,9 +111,7 @@ public class CameraTimelineClipInspector : Editor
                 EditorGUILayout.PropertyField(resetLerpFactor, new GUIContent("归位平滑速度", "数值越大拉回越快"));
             }
             EditorGUILayout.PropertyField(lockLookAtPlayer, new GUIContent("看向角色", "归位过程中持续看向角色"));
-            EditorGUILayout.PropertyField(allowManualCamera, new GUIContent("允许手动拖动", "归位期间手动拖动会临时接管，停止输入后继续归位"));
             DrawProjectionSection();
-            DrawAxisConstraintSection();
             serializedObject.ApplyModifiedProperties();
             return;
         }
@@ -118,6 +132,29 @@ public class CameraTimelineClipInspector : Editor
             EditorGUILayout.PropertyField(surroundRadius, new GUIContent("环绕半径", "圆弧半径"));
             EditorGUILayout.PropertyField(surroundTotalAngle, new GUIContent("扫过角度", "180=绕至侧面/脑后；负值反向"));
             EditorGUILayout.PropertyField(surroundFixedHeight, new GUIContent("圆心高度", "圆弧圆心相对角色脚底的高度"));
+            EditorGUILayout.PropertyField(
+                useSurroundRadiusCurve,
+                new GUIContent("半径曲线", "用曲线控制环绕期间的远近变化"));
+            if (useSurroundRadiusCurve.boolValue)
+            {
+                EditorGUILayout.PropertyField(
+                    surroundRadiusCurve,
+                    new GUIContent("半径倍率", "1=基础环绕半径"),
+                    true);
+            }
+            EditorGUILayout.PropertyField(
+                useSurroundHeightCurve,
+                new GUIContent("高度曲线", "用曲线控制环绕期间的升降变化"));
+            if (useSurroundHeightCurve.boolValue)
+            {
+                EditorGUILayout.PropertyField(
+                    surroundHeightCurve,
+                    new GUIContent("高度倍率", "1=基础圆心高度"),
+                    true);
+            }
+            EditorGUILayout.LabelField(
+                "Scene 视图拖拽轨迹终点可改半径、总角度和高度",
+                EditorStyles.miniLabel);
         }
         else
         {
@@ -125,12 +162,16 @@ public class CameraTimelineClipInspector : Editor
             EditorGUILayout.LabelField("目标机位", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(cameraTargetLocalPos, new GUIContent("机位坐标(相对角色)", "目标坐标随角色移动与转向换算"));
             EditorGUILayout.PropertyField(cameraTargetEuler, new GUIContent("机位朝向(相对角色)", "目标朝向的本地欧拉角"));
-            EditorGUILayout.LabelField("在 Scene 视图中可拖动机位手柄调整", EditorStyles.miniLabel);
+            EditorGUILayout.LabelField(
+                "Scene 视图拖拽轨迹终点可改位置，关闭看向角色后可继续拖旋转",
+                EditorStyles.miniLabel);
         }
 
         EditorGUILayout.PropertyField(lockLookAtPlayer, new GUIContent("看向角色", "全程看向角色；关闭则使用机位朝向"));
+        DrawMotionCurveSection();
         DrawProjectionSection();
         DrawAxisConstraintSection();
+        Draw2DTurnSection();
 
         if (mode == CamMoveMode.SmoothLerp)
         {
@@ -144,12 +185,6 @@ public class CameraTimelineClipInspector : Editor
                 EditorGUILayout.PropertyField(endSpeed, new GUIContent("结束速度", "片段结束时达到的速度"));
             }
         }
-
-        EditorGUILayout.Space(4);
-        EditorGUILayout.LabelField("片段收尾", EditorStyles.boldLabel);
-        EditorGUILayout.PropertyField(restoreOriginOnEnd, new GUIContent("平滑交还 Project 相机", "轨道结束后平滑回到 Project 的 2D/3D 玩法相机；关闭则立即交还"));
-        EditorGUILayout.PropertyField(allowManualCamera, new GUIContent("运镜中允许手动拖动", "拖动时本段暂停写入，停止输入后自当前机位继续"));
-        EditorGUILayout.LabelField("允许手动时建议同时开启“以上一帧位置为起点”，松手后运镜才不跳变", EditorStyles.miniLabel);
 
         serializedObject.ApplyModifiedProperties();
         if (serializedObject.hasModifiedProperties)
@@ -185,6 +220,58 @@ public class CameraTimelineClipInspector : Editor
         EditorGUILayout.PropertyField(
             projectionTransitionDuration,
             new GUIContent("投影切换时间", "交给 Project CameraControlManager 执行投影矩阵过渡"));
+    }
+
+    private void DrawMotionCurveSection()
+    {
+        EditorGUILayout.Space(2);
+        EditorGUILayout.LabelField("运动曲线", EditorStyles.boldLabel);
+        EditorGUILayout.PropertyField(
+            useMotionCurve,
+            new GUIContent("使用运动曲线", "用曲线控制镜头的归一化运动进度"));
+        if (!useMotionCurve.boolValue)
+        {
+            return;
+        }
+
+        EditorGUILayout.PropertyField(
+            motionCurve,
+            new GUIContent("运动曲线", "X=时间进度，Y=镜头运动进度"),
+            true);
+    }
+
+    private void Draw2DTurnSection()
+    {
+        bool is2D =
+            overrideProjection.boolValue &&
+            (TimelineCameraProjection)projection.enumValueIndex ==
+            TimelineCameraProjection.Orthographic;
+        if (!is2D)
+        {
+            return;
+        }
+
+        EditorGUILayout.Space(2);
+        EditorGUILayout.LabelField("2D 平面转向", EditorStyles.boldLabel);
+        EditorGUILayout.PropertyField(
+            turnTiming,
+            new GUIContent("转向时机", "不处理 / 片段开始时 / 片段结束时"));
+        if ((Camera2DTurnTiming)turnTiming.enumValueIndex ==
+            Camera2DTurnTiming.None)
+        {
+            return;
+        }
+
+        EditorGUILayout.PropertyField(
+            turnAngleDegrees,
+            new GUIContent("转向角度", "平面右转为正；90=转到下一个面"));
+        EditorGUILayout.PropertyField(
+            turnDuration,
+            new GUIContent("转向时长"));
+        EditorGUILayout.PropertyField(
+            turnCurve,
+            new GUIContent("转向速度曲线", "X=转向时间进度，Y=角度进度"),
+            true);
     }
 
     private void DrawAxisConstraintSection()
@@ -226,4 +313,5 @@ public class CameraTimelineClipInspector : Editor
         }
         EditorGUILayout.EndHorizontal();
     }
+
 }

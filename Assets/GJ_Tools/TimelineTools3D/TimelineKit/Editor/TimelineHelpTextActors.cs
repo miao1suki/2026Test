@@ -22,7 +22,7 @@ public static class TimelineHelpTextActors
             "【注意】\n" +
             "组件在 Awake 时若发现血量 ≤ 0，会用 maxHp 重置一次，" +
             "所以只在 Inspector 里改 maxHp、留空 _hp 也是安全的。\n\n" +
-            "（本说明由 AI 编写，可能与最新代码存在出入，请以脚本源码为准。）");
+            "");
 
         TimelineHelpText.Register(map, typeof(HitFlash), "HitFlash · 受击闪色",
             "【这是什么】\n" +
@@ -40,7 +40,7 @@ public static class TimelineHelpTextActors
             "【注意】\n" +
             "运行时改的是 material 实例（不是 sharedMaterial），所以每个物体都会产生材质副本，" +
             "数量多时请注意内存。\n\n" +
-            "（本说明由 AI 编写，可能与最新代码存在出入，请以脚本源码为准。）");
+            "");
 
         TimelineHelpText.Register(map, typeof(TimelineActorHost), "TimelineActorHost · 时间轴执行者",
             "【这是什么】\n" +
@@ -65,7 +65,7 @@ public static class TimelineHelpTextActors
             "实现 ITimelineHitHost（SetHitBox / ClearHitBox / DoHitScan）与 " +
             "ITimelineEffectHost（PlaySound / SpawnEffect / RecycleEffect），" +
             "这两个接口是给自定义轨道行为调用的，业务代码一般不用直接碰。\n\n" +
-            "（本说明由 AI 编写，可能与最新代码存在出入，请以脚本源码为准。）");
+            "");
 
         TimelineHelpText.Register(map, typeof(TimelineCamRig), "TimelineCamRig · 相机机位承载",
             "【这是什么】\n" +
@@ -80,18 +80,21 @@ public static class TimelineHelpTextActors
             "· 把 Timeline 片段的期望机位转换成 Project 的 CameraState；\n" +
             "· 整条轨道开始时统一申请控制权，轨道结束后交还 Project 玩法相机；\n" +
             "· 保存目标、距离、角度和观察高度，支持玩家在允许时手动接管；\n" +
-            "· 提供从当前 Project 相机状态反算环绕参数的接口。\n\n" +
+            "· 提供从当前 Project 相机状态反算环绕参数的接口；\n" +
+            "· 维护 2D 平面朝向，并在交还玩法控制前同步给 Project CameraModeController。\n\n" +
             "【注意】\n" +
             "Project 的 CameraControlManager 是唯一 Camera 写入者。Timeline 与玩法相机冲突时，" +
             "Timeline 必须让位，不要在本组件中加入直接写 transform.position、rotation、" +
             "orthographicSize、fieldOfView 或 projectionMatrix 的代码。\n\n" +
-            "（本说明由 AI 编写，可能与最新代码存在出入，请以脚本源码为准。）");
+            "");
 
 #if ENABLE_INPUT_SYSTEM
         TimelineHelpText.Register(map, typeof(OrbitCameraControl), "OrbitCameraControl · 玩家环绕视角",
             "【这是什么】\n" +
             "让玩家在 Timeline 运镜期间临时用鼠标环绕观察目标。" +
             "它只修改 TimelineCamRig 的参数，不直接写 Camera。\n\n" +
+            "普通 3D 玩法中的鼠标视角由 Project CameraModeController 的 " +
+            "RotatePerspective / SetPerspectiveAngles 负责，不使用本组件。\n\n" +
             "【前置条件】\n" +
             "同一物体上必须有 TimelineCamRig（组件带 RequireComponent，会自动添加）。\n" +
             "Timeline 必须已经取得 Project CameraControlManager 的控制权，且当前片段开启手动接管。\n" +
@@ -106,7 +109,7 @@ public static class TimelineHelpTextActors
             "【工作方式】\n" +
             "在 Update 里读取鼠标位移与滚轮，累加到 TimelineCamRig 的角度和距离上；" +
             "TimelineCamRig 再通过 ICameraControlSource 返回状态，由 Project CameraControlManager 写入 Camera。\n\n" +
-            "（本说明由 AI 编写，可能与最新代码存在出入，请以脚本源码为准。）");
+            "");
 #endif
     }
 }

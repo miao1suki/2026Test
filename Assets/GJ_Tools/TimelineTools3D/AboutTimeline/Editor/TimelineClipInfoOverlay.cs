@@ -44,12 +44,21 @@ public static class TimelineClipInfoOverlay
                 MoveMode.FixedEndPos => "瞬移(穿墙)",
                 MoveMode.SpeedAndDistance => "匀速直线",
                 MoveMode.VariableSpeed => "变速直线",
+                MoveMode.Jump => "跳跃",
                 _ => "绕圈"
             };
             string detail = t.moveMode == MoveMode.CircleRotate
                 ? $"圆心+半径 {t.circleRadius:F1}m · 转角 {t.circleTotalAngle:F0}°"
                 : $"方向 {t.direction} · 距离 {t.totalDistance:F1}m · 碰撞 {(t.useCollision ? "滑行" : "关")}";
-            return $"位移 · {mode}\n{detail}\n时长 {clip.duration:F2}s";
+            string speed = t.moveMode == MoveMode.SpeedAndDistance ||
+                           t.moveMode == MoveMode.VariableSpeed ||
+                           t.moveMode == MoveMode.Jump
+                ? $"\n速度 {(t.useSpeedCurve ? "使用 AnimationCurve" : "使用旧参数")}"
+                : string.Empty;
+            string jump = t.moveMode == MoveMode.Jump
+                ? $"\n跳跃 高度基准 {t.jumpHeight:F2}m · 时长 {t.jumpDuration:F2}s"
+                : string.Empty;
+            return $"位移 · {mode}\n{detail}{speed}{jump}\n时长 {clip.duration:F2}s";
         }
         if (clip.asset is HitBoxClip h)
         {
@@ -70,13 +79,14 @@ public static class TimelineClipInfoOverlay
             {
                 CamMoveMode.SmoothLerp => "平滑运镜",
                 CamMoveMode.Teleport => "瞬移切镜",
-                _ => "归位"
+                CamMoveMode.ResetOrigin => "归位",
+                _ => "未知运镜"
             };
             string detail = c.cameraMoveMode == CamMoveMode.ResetOrigin
                 ? $"{(c.resetSubMode == ResetCamSubMode.Teleport ? "瞬移" : "平滑")}回正常机位"
                 : (c.useSurroundMode
                     ? $"环绕半径 {c.surroundRadius:F1}m · 角度 {c.surroundTotalAngle:F0}°"
-                    : $"机位 {c.cameraTargetLocalPos} · 衔接上段 {(c.useLastFrameAsOrigin ? "开" : "关")}");
+                    : $"机位 {c.cameraTargetLocalPos} · 连续运镜 {(c.useLastFrameAsOrigin ? "开" : "关")}");
             string projection = c.overrideProjection
                 ? $" · {(c.projection == TimelineCameraProjection.Orthographic ? "正交 2D" : "透视 3D")}"
                 : " · 跟随 Project 投影";
@@ -89,6 +99,15 @@ public static class TimelineClipInfoOverlay
                 projection += string.IsNullOrEmpty(axes)
                     ? " · 2D 全轴锁定"
                     : $" · 2D 轴 {axes}";
+            }
+            if (c.overrideProjection &&
+                c.projection == TimelineCameraProjection.Orthographic &&
+                c.turnTiming != Camera2DTurnTiming.None)
+            {
+                string timing = c.turnTiming == Camera2DTurnTiming.AtClipStart
+                    ? "片头"
+                    : "片尾";
+                projection += $" · {timing}转 {c.turnAngleDegrees:F0}°";
             }
             return $"运镜 · {mode}{projection}\n{detail}";
         }

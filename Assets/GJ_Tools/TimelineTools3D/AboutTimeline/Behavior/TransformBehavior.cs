@@ -33,10 +33,13 @@ public class TransformBehaviour : PlayableBehaviour
         {
             return;
         }
-        if (clip.moveMode == MoveMode.CircleRotate)
-        {
-            SetPosition(_curPos);
-        }
+
+        float clipTime = (float)playable.GetTime();
+        float clipDuration = (float)playable.GetDuration();
+        Vector3 finalPosition = clip.moveMode == MoveMode.Jump
+            ? _curPos + GetJumpOffset(clipTime, clipDuration)
+            : _curPos;
+        WritePosition(finalPosition);
     }
 
     public override void ProcessFrame(Playable playable, FrameData info, object playerData)
@@ -69,6 +72,9 @@ public class TransformBehaviour : PlayableBehaviour
         {
             case MoveMode.FixedEndPos:
                 TickFixed();
+                break;
+            case MoveMode.Jump:
+                TickJump(curTime, duration, deltaTime);
                 break;
             case MoveMode.CircleRotate:
                 TickCircle(curTime, duration);
@@ -116,14 +122,15 @@ public class TransformBehaviour : PlayableBehaviour
                 _rb.linearVelocity = Vector3.zero;
                 _rb.angularVelocity = Vector3.zero;
             }
-            SetPosition(targetPos);
-            _trans.rotation = targetRot;
             _curPos = targetPos;
+            _trans.rotation = targetRot;
+            WritePosition(_curPos);
             _hasTeleported = true;
         }
         else
         {
             _trans.rotation = _startRot * Quaternion.Euler(clip.endEuler);
+            WritePosition(_curPos);
         }
     }
 
@@ -131,8 +138,24 @@ public class TransformBehaviour : PlayableBehaviour
     {
         float t = Mathf.Clamp01(curTime / duration);
         float total = clip.circleTotalAngle * (clip.circleClockwise ? -1f : 1f);
-        float angle = clip.circleVariableSpeed ? GetVariableProgress(curTime, duration, clip.circleStartAngSpeed, clip.circleEndAngSpeed) * total
-                                              : total * t;
+        float progress;
+        if (clip.circleVariableSpeed)
+        {
+            progress = GetVariableProgress(
+                curTime,
+                duration,
+                clip.circleStartAngSpeed,
+                clip.circleEndAngSpeed);
+        }
+        else if (clip.useProgressCurve && clip.progressCurve != null)
+        {
+            progress = Mathf.Clamp01(clip.progressCurve.Evaluate(t));
+        }
+        else
+        {
+            progress = t;
+        }
+        float angle = total * progress;
         Vector3 initDir = _startPos - _circleCenterWorld;
         initDir.y = 0f;
         if (initDir.sqrMagnitude < 0.000001f)
@@ -145,11 +168,25 @@ public class TransformBehaviour : PlayableBehaviour
         }
         Vector3 offset = Quaternion.Euler(0f, angle, 0f) * (initDir * clip.circleRadius);
         _curPos = _circleCenterWorld + offset;
-        SetPosition(_curPos);
         _trans.rotation = _startRot;
+        WritePosition(_curPos);
     }
 
     private void TickLinear(float curTime, float duration, float deltaTime)
+    {
+        UpdateLinearPosition(curTime, duration, deltaTime);
+        _trans.rotation = _startRot;
+        WritePosition(_curPos);
+    }
+
+    private void TickJump(float curTime, float duration, float deltaTime)
+    {
+        UpdateLinearPosition(curTime, duration, deltaTime);
+        _trans.rotation = _startRot;
+        WritePosition(_curPos + GetJumpOffset(curTime, duration));
+    }
+
+    private void UpdateLinearPosition(float curTime, float duration, float deltaTime)
     {
         float speed = GetLinearSpeed(curTime, duration);
         Vector3 step = _moveDir * speed * deltaTime;
@@ -178,21 +215,15 @@ public class TransformBehaviour : PlayableBehaviour
             next = _curPos + step;
         }
         _curPos = next;
-
-        if (_rb != null && !_rb.isKinematic)
-        {
-            _rb.MovePosition(_curPos);
-        }
-        else
-        {
-            SetPosition(_curPos);
-        }
-        _trans.rotation = _startRot;
     }
 
     private float GetLinearSpeed(float curTime, float duration)
     {
         float t = Mathf.Clamp01(curTime / duration);
+        if (clip.useSpeedCurve && clip.speedCurve != null)
+        {
+            return Mathf.Max(0f, clip.speedCurve.Evaluate(t));
+        }
         if (clip.moveMode == MoveMode.VariableSpeed)
         {
             return Mathf.Lerp(clip.startSpeed, clip.endSpeed, t);
@@ -259,5 +290,42 @@ public class TransformBehaviour : PlayableBehaviour
             _rb.position = position;
         }
         _trans.position = position;
+    }
+
+    private void WritePosition(Vector3 position)
+    {
+        if (_rb != null && !_rb.isKinematic)
+        {
+            _rb.MovePosition(position);
+        }
+        else
+        {
+            SetPosition(position);
+        }
+    }
+
+    private Vector3 GetJumpOffset(float clipTime, float clipDuration)
+    {
+        if (clip == null ||
+            clip.moveMode != MoveMode.Jump ||
+            clip.jumpHeight <= 0f ||
+            clip.jumpDuration <= 0f ||
+            clipDuration <= 0f)
+        {
+            return Vector3.zero;
+        }
+
+        float start = Mathf.Clamp(clip.jumpStartTime, 0f, clipDuration);
+        float end = Mathf.Min(clipDuration, start + clip.jumpDuration);
+        if (end <= start || clipTime < start || clipTime > end)
+        {
+            return Vector3.zero;
+        }
+
+        float progress = Mathf.InverseLerp(start, end, clipTime);
+        float heightMultiplier = clip.jumpHeightCurve != null
+            ? clip.jumpHeightCurve.Evaluate(progress)
+            : Mathf.Sin(progress * Mathf.PI);
+        return Vector3.up * (clip.jumpHeight * Mathf.Max(0f, heightMultiplier));
     }
 }

@@ -13,6 +13,11 @@ public enum HitBoxShape
 
 [TrackBindingType(typeof(Transform))]
 [TrackClipType(typeof(HitBoxClip))]
+[TrackColor(0.95f, 0.28f, 0.24f)]
 public class HitBoxTrack : TrackAsset
 {
+    protected override void OnCreateClip(TimelineClip clip)
+    {
+        clip.displayName = "HitBox";
+    }
 }
