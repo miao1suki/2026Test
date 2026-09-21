@@ -15,6 +15,12 @@ namespace Project.CubeMapEditing.Editor
             LevelSceneFolder + "/LV001_Map2D.unity";
         internal const string Main3DScenePath =
             LevelSceneFolder + "/LV001_Main3D.unity";
+        internal const string MapItemDataFolder =
+            "Assets/_Project/Content/Data/MapItems";
+        internal const string MapItemPrefabFolder =
+            "Assets/_Project/Content/Prefabs/MapItems";
+        internal const string GridMapPalettePath =
+            MapItemDataFolder + "/LV001_GridMapPalette.asset";
 
         internal static string GetPieceScenePath(int pieceIndex)
         {

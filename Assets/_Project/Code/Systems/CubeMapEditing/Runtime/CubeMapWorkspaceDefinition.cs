@@ -42,6 +42,9 @@ namespace Project.CubeMapEditing
         public IReadOnlyList<string> PieceScenePaths => pieceScenePaths;
         public int PieceCount => pieceScenePaths.Count;
         public float TotalHeight => PieceCount * pieceHeight;
+        public Vector2 CellSize => new Vector2(
+            faceWidth / Mathf.Max(1, columnsPerFace),
+            pieceHeight / Mathf.Max(1, rowsPerPiece));
 
         public void Configure(
             string id,
