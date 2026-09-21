@@ -54,7 +54,11 @@ namespace Project.CameraModes.Editor
             DrawRuntimeStatus();
             DrawModeButtons();
 
-            if (GUILayout.Button("打开 2D / 3D 相机配置工具"))
+            EditorGUILayout.HelpBox(
+                "常用操作已放在 Scene View 的“2D / 3D 相机”Overlay 中。",
+                MessageType.None);
+
+            if (GUILayout.Button("打开独立相机工具窗口"))
             {
                 CameraModeSetupWindow.OpenWindow();
             }

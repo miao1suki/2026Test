@@ -39,6 +39,18 @@ Assets/_Project/Scenes/Sandbox/Programmer/LevelEditorSandbox.unity
 
 ## 3. 策划配置界面
 
+首选入口是 Scene View 内的 UI Toolkit Overlay：
+
+```text
+Scene View 右上角 Overlays > 2D / 3D 相机
+```
+
+面板默认显示，并可像 Unity 其他 Overlay 一样拖动、停靠、折叠或隐藏。常用的
+相机绑定、跟随目标、2D/3D 预览与状态反馈始终显示；构图、过渡和跟随参数收在
+“高级参数”折叠区内，策划不需要离开场景窗口。
+
+如果当前布局隐藏了 Overlay，也可以使用兼容入口打开同一套 UI Toolkit 面板：
+
 菜单入口：
 
 ```text
@@ -49,9 +61,9 @@ Tools > 2026Test > 2D-3D 相机配置
 
 1. 选择场景中的受控相机；
 2. 指定玩家、物品或临时空物体作为跟随目标；
-3. 点击“创建 / 更新 CameraModeController”；
-4. 在编辑模式使用“预览 2D / 预览 3D”调整构图；
-5. 在 Play Mode 使用相同位置的按钮验证动画和打断。
+3. 点击“创建 / 应用相机控制器”；
+4. 在编辑模式使用“2D 平台 / 3D 俯视”调整构图；
+5. 在 Play Mode 使用同一组按钮验证动画和打断。
 
 常用参数：
 
