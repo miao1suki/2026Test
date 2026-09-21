@@ -1,0 +1,11 @@
+[Unit]
+Description=Check SnowLuma QQ login health every two minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+Unit=snowluma-healthcheck.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target

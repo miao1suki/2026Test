@@ -30,7 +30,7 @@ const onebotTokenPath = config.onebotTokenPath ?? "/etc/qq-github-notifier/onebo
 const onebotGroupId = Number(config.onebotGroupId ?? 0);
 const reportTimeZone = config.reportTimeZone ?? "Asia/Shanghai";
 const recoveryRequestPath = config.recoveryRequestPath
-  ?? "/var/lib/qq-github-notifier/napcat-recovery.request";
+  ?? "/var/lib/qq-github-notifier/snowluma-recovery.request";
 
 const defaultState = {
   groupOpenId: null,
@@ -309,13 +309,13 @@ async function processQueue() {
         state.recentDeliveries.push(item.deliveryId);
         state.recentDeliveries = state.recentDeliveries.slice(-recentDeliveryLimit);
         saveState();
-        console.log(`GitHub delivery sent through NapCat: ${item.deliveryId}`);
+        console.log(`GitHub delivery sent through SnowLuma: ${item.deliveryId}`);
         await sleep(3000);
       } catch (error) {
         item.attempts += 1;
         saveState();
         if (item.attempts === 3 && isRecoverableOneBotFailure(error)) {
-          requestNapCatRecovery(item, error);
+          requestTransportRecovery(item, error);
         }
         const delay = Math.min(300_000, 5000 * (2 ** Math.min(item.attempts - 1, 6)));
         console.error(`QQ notification attempt ${item.attempts} failed: ${redact(error?.message ?? String(error))}`);
@@ -360,7 +360,7 @@ function isRecoverableOneBotFailure(error) {
     && /1006514|网络连接异常|EventChecker Failed|sendMsg.*Timeout/i.test(detail);
 }
 
-function requestNapCatRecovery(item, error) {
+function requestTransportRecovery(item, error) {
   try {
     mkdirSync(dirname(recoveryRequestPath), { recursive: true });
     const temporaryPath = `${recoveryRequestPath}.tmp`;
@@ -371,9 +371,9 @@ function requestNapCatRecovery(item, error) {
       reason: String(error?.onebotDetail ?? error?.message ?? "unknown").slice(0, 500),
     }, null, 2)}\n`, { mode: 0o600 });
     renameSync(temporaryPath, recoveryRequestPath);
-    console.warn("NapCat recovery requested after repeated QQ transport failures.");
+    console.warn("SnowLuma recovery requested after repeated QQ transport failures.");
   } catch (requestError) {
-    console.error(`Could not request NapCat recovery: ${redact(requestError?.message ?? String(requestError))}`);
+    console.error(`Could not request SnowLuma recovery: ${redact(requestError?.message ?? String(requestError))}`);
   }
 }
 

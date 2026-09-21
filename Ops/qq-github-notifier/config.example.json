@@ -11,5 +11,5 @@
   "onebotTokenPath": "/etc/qq-github-notifier/onebot-token",
   "onebotGroupId": 123456789,
   "reportTimeZone": "Asia/Shanghai",
-  "recoveryRequestPath": "/var/lib/qq-github-notifier/napcat-recovery.request"
+  "recoveryRequestPath": "/var/lib/qq-github-notifier/snowluma-recovery.request"
 }

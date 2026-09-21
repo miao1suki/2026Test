@@ -1,0 +1,10 @@
+[Unit]
+Description=Recover SnowLuma QQ session after transport failures
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/snowluma/recover-snowluma.sh
+TimeoutStartSec=180
+Nice=10

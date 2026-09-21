@@ -1,12 +1,12 @@
 # QQ GitHub Push Notifier
 
-This service combines an official QQ bot with a local NapCat OneBot transport
+This service combines an official QQ bot with a local SnowLuma OneBot transport
 for `miao1suki/2026Test` GitHub notifications.
 
 ## Behavior
 
-- NapCat proactively delivers every GitHub branch push in queue order.
-- Recoverable QQ transport failures request a rate-limited NapCat restart; the
+- SnowLuma proactively delivers every GitHub branch push in queue order.
+- Recoverable QQ transport failures request a rate-limited SnowLuma restart; the
   persisted queue is drained after login recovers.
 - Push messages stay compact and omit repository and comparison URLs.
 - Push messages include the latest commit time in `Asia/Shanghai`.

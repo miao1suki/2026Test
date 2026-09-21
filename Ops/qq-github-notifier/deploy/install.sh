@@ -109,7 +109,7 @@ config = {
     "reportTimeZone": existing.get("reportTimeZone", "Asia/Shanghai"),
     "recoveryRequestPath": existing.get(
         "recoveryRequestPath",
-        "/var/lib/qq-github-notifier/napcat-recovery.request",
+        "/var/lib/qq-github-notifier/snowluma-recovery.request",
     ),
 }
 with open(output_path, "w", encoding="utf-8") as handle:

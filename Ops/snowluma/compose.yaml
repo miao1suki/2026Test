@@ -1,0 +1,39 @@
+services:
+  snowluma:
+    image: ${SNOWLUMA_IMAGE:-motricseven7/snowluma:v1.14.17}
+    container_name: snowluma
+    restart: unless-stopped
+    shm_size: 1gb
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 1048576
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp=unconfined
+    environment:
+      VNC_PASSWD: ${VNC_PASSWD:-}
+      SNOWLUMA_UID: ${SNOWLUMA_UID:-1000}
+      SNOWLUMA_GID: ${SNOWLUMA_GID:-1000}
+      SNOWLUMA_WEBUI_HOST: 0.0.0.0
+      SNOWLUMA_WEBUI_PORT: 5099
+      SNOWLUMA_LOG_LEVEL: ${SNOWLUMA_LOG_LEVEL:-info}
+      SNOWLUMA_SCREEN: ${SNOWLUMA_SCREEN:-1920x1080x24}
+      SNOWLUMA_HOOK_AUTOLOAD: ${SNOWLUMA_HOOK_AUTOLOAD:-1}
+      SNOWLUMA_QQ_FLAGS: ${SNOWLUMA_QQ_FLAGS:---disable-gpu --disable-software-rasterizer --disable-gpu-compositing}
+    ports:
+      - "127.0.0.1:${NOVNC_HOST_PORT:-6081}:6081"
+      - "127.0.0.1:${SNOWLUMA_WEBUI_HOST_PORT:-5099}:5099"
+      # The notifier keeps its stable host-side HTTP endpoint at 3001.
+      - "127.0.0.1:${ONEBOT_HTTP_HOST_PORT:-3001}:3000"
+      - "127.0.0.1:${ONEBOT_WS_HOST_PORT:-3002}:3001"
+    volumes:
+      - /opt/snowluma/data:/app/data
+      - /opt/snowluma/config:/app/.config
+      - /opt/snowluma/qqdata:/app/.local/share
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
