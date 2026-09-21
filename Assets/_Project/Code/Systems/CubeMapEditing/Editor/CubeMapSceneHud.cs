@@ -85,6 +85,9 @@ namespace Project.CubeMapEditing.Editor
             private readonly VisualElement piecePanel;
             private readonly VisualElement guidePanel;
             private readonly VisualElement buildPanel;
+            private readonly VisualElement toolModePanel;
+            private readonly Button assemblyModeButton;
+            private readonly Button gridModeButton;
             private readonly Label sceneBadge;
             private readonly Label pieceLabel;
             private readonly Label dimensionsLabel;
@@ -105,6 +108,32 @@ namespace Project.CubeMapEditing.Editor
                 Color panelColor = EditorGUIUtility.isProSkin
                     ? new Color(0.12f, 0.13f, 0.15f, 0.94f)
                     : new Color(0.93f, 0.94f, 0.96f, 0.96f);
+
+                toolModePanel = new VisualElement();
+                toolModePanel.pickingMode = PickingMode.Position;
+                toolModePanel.style.position = Position.Absolute;
+                toolModePanel.style.top = 12f;
+                toolModePanel.style.left = Length.Percent(50f);
+                toolModePanel.style.translate = new Translate(-110f, 0f, 0f);
+                toolModePanel.style.flexDirection = FlexDirection.Row;
+                toolModePanel.style.paddingLeft = 4f;
+                toolModePanel.style.paddingRight = 4f;
+                toolModePanel.style.paddingTop = 3f;
+                toolModePanel.style.paddingBottom = 3f;
+                toolModePanel.style.backgroundColor = panelColor;
+                toolModePanel.style.borderTopLeftRadius = 6f;
+                toolModePanel.style.borderTopRightRadius = 6f;
+                toolModePanel.style.borderBottomLeftRadius = 6f;
+                toolModePanel.style.borderBottomRightRadius = 6f;
+                assemblyModeButton = CreateButton("拼合预览", () =>
+                    CubeMapEditorToolState.ActiveMode = CubeMapEditorToolMode.Assembly, true);
+                gridModeButton = CreateButton("网格地图", () =>
+                    CubeMapEditorToolState.ActiveMode = CubeMapEditorToolMode.GridMap, true);
+                assemblyModeButton.style.width = 96f;
+                gridModeButton.style.width = 96f;
+                toolModePanel.Add(assemblyModeButton);
+                toolModePanel.Add(gridModeButton);
+                root.Add(toolModePanel);
 
                 navigationPanel = CreatePanel(root, panelColor, 12f, 46f, null, null, 258f);
                 AddTitle(navigationPanel, "立方体地图编辑", "多场景协作工作区");
@@ -190,6 +219,20 @@ namespace Project.CubeMapEditing.Editor
 
             internal void Refresh()
             {
+                bool assemblyMode = CubeMapEditorToolState.IsAssembly;
+                navigationPanel.style.display = assemblyMode ? DisplayStyle.Flex : DisplayStyle.None;
+                piecePanel.style.display = assemblyMode ? DisplayStyle.Flex : DisplayStyle.None;
+                guidePanel.style.display = assemblyMode ? DisplayStyle.Flex : DisplayStyle.None;
+                buildPanel.style.display = assemblyMode ? DisplayStyle.Flex : DisplayStyle.None;
+                assemblyModeButton.style.backgroundColor = assemblyMode
+                    ? new Color(0.18f, 0.52f, 0.92f, 1f)
+                    : StyleKeyword.Null;
+                gridModeButton.style.backgroundColor = assemblyMode
+                    ? StyleKeyword.Null
+                    : new Color(0.18f, 0.52f, 0.92f, 1f);
+                assemblyModeButton.style.color = assemblyMode ? Color.white : StyleKeyword.Null;
+                gridModeButton.style.color = assemblyMode ? StyleKeyword.Null : Color.white;
+
                 CubeMapWorkspaceDefinition workspace = CubeMapWorkspaceService.LoadWorkspace();
                 bool ready = workspace != null;
                 initializeButton.style.display = ready ? DisplayStyle.None : DisplayStyle.Flex;

@@ -2,7 +2,8 @@
   "name": "Project.CubeMapEditing.EditorTests",
   "rootNamespace": "Project.CubeMapEditing.Tests",
   "references": [
-    "Project.CubeMapEditing.Runtime"
+    "Project.CubeMapEditing.Runtime",
+    "Project.CubeMapEditing.Editor"
   ],
   "includePlatforms": [
     "Editor"
