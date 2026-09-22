@@ -101,6 +101,22 @@ namespace Project.RopePaths.Tests
             Destroy(networkObject, platformObject);
         }
 
+        [Test]
+        public void Segment_CreatesPlaceholderRopeAndEndpointVisuals()
+        {
+            GameObject segmentObject = new GameObject("Rope");
+            RopeSegment segment = segmentObject.AddComponent<RopeSegment>();
+
+            segment.EnsureVisuals();
+            Assert.That(segment.HasVisuals, Is.True);
+            Assert.That(segmentObject.transform.Find("__RopeVisual"), Is.Not.Null);
+            Assert.That(segmentObject.transform.Find("__RopeVisual/__RopeBody"), Is.Not.Null);
+            Assert.That(segmentObject.transform.Find("__RopeVisual/__RopeEndpointA"), Is.Not.Null);
+            Assert.That(segmentObject.transform.Find("__RopeVisual/__RopeEndpointB"), Is.Not.Null);
+
+            Destroy(segmentObject);
+        }
+
         private static GameObject CreateSegment(Vector3 endpointA, Vector3 endpointB)
         {
             GameObject gameObject = new GameObject("Rope");
