@@ -7,6 +7,9 @@ namespace Project.RopePaths.Editor
 {
     internal static class RopePathEditorService
     {
+        private const string RopeMaterialFolder = "Assets/_Project/Content/Materials/RopePaths";
+        private const string RopeMaterialPath = RopeMaterialFolder + "/Rope_White.mat";
+
         internal static RopePathNetwork FindActiveNetwork()
         {
             Scene scene = SceneManager.GetActiveScene();
@@ -63,9 +66,87 @@ namespace Project.RopePaths.Editor
             gameObject.transform.SetParent(network.transform, false);
             Undo.RegisterCreatedObjectUndo(gameObject, "创建绳子段");
             RopeSegment segment = gameObject.AddComponent<RopeSegment>();
+            EnsureSegmentVisuals(segment);
             Selection.activeGameObject = gameObject;
             MarkDirty(network, gameObject);
             return segment;
+        }
+
+        internal static void EnsureSegmentVisuals(RopeSegment segment)
+        {
+            if (segment == null)
+            {
+                return;
+            }
+
+            Material material = GetOrCreateRopeMaterial();
+            if (segment.EnsureVisuals(material))
+            {
+                RopePathNetwork network = segment.GetComponentInParent<RopePathNetwork>();
+                MarkDirty(network, segment.gameObject);
+            }
+        }
+
+        [MenuItem("Tools/2026Test/绳子路径/创建白膜材质")]
+        public static void CreateDefaultMaterialAsset()
+        {
+            GetOrCreateRopeMaterial();
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
+
+        private static Material GetOrCreateRopeMaterial()
+        {
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(RopeMaterialPath);
+            if (material != null)
+            {
+                return material;
+            }
+
+            EnsureFolder("Assets/_Project/Content");
+            EnsureFolder("Assets/_Project/Content/Materials");
+            EnsureFolder(RopeMaterialFolder);
+            Shader shader = Shader.Find("Universal Render Pipeline/Unlit") ??
+                            Shader.Find("Universal Render Pipeline/Lit") ??
+                            Shader.Find("Standard");
+            if (shader == null)
+            {
+                return null;
+            }
+
+            material = new Material(shader)
+            {
+                name = "Rope_White"
+            };
+            if (material.HasProperty("_BaseColor"))
+            {
+                material.SetColor("_BaseColor", Color.white);
+            }
+
+            if (material.HasProperty("_Color"))
+            {
+                material.SetColor("_Color", Color.white);
+            }
+
+            AssetDatabase.CreateAsset(material, RopeMaterialPath);
+            AssetDatabase.SaveAssets();
+            return material;
+        }
+
+        private static void EnsureFolder(string folderPath)
+        {
+            string[] parts = folderPath.Split('/');
+            string current = parts[0];
+            for (int index = 1; index < parts.Length; index++)
+            {
+                string next = current + "/" + parts[index];
+                if (!AssetDatabase.IsValidFolder(next))
+                {
+                    AssetDatabase.CreateFolder(current, parts[index]);
+                }
+
+                current = next;
+            }
         }
 
         internal static RopePlatform CreatePlatform(RopePathNetwork network)

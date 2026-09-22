@@ -208,8 +208,8 @@ namespace Project.RopePaths.Editor
                 graphLabel.style.marginTop = 4f;
                 panel.Add(graphLabel);
                 Label help = new Label(
-                    "拖动选中绳子的 A/B 端点调整位置；黄色虚线表示端点外延方向；\n" +
-                    "黄色点划线表示当前投影下已识别的接续。平台只保存绑定，不包含移动逻辑。");
+                    "拖动绳子根部手柄可整体移动/旋转；点击 A/B 端点后可单独调整；\n" +
+                    "3D 黄色虚线与箭头表示当前投影下已识别的空间接续。平台只保存绑定，不包含移动逻辑。");
                 help.style.whiteSpace = WhiteSpace.Normal;
                 help.style.fontSize = 10f;
                 help.style.opacity = 0.68f;
