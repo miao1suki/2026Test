@@ -9,3 +9,4 @@ this directory for runtime assets.
 - [Cube map editor](CUBE_MAP_EDITOR.md)
 - [Grid map editor](GRID_MAP_EDITOR.md)
 - [Timeline camera integration](TIMELINE_CAMERA_INTEGRATION.md)
+- [Ladder paths and climb-state integration](LADDER_PATHS.md)
