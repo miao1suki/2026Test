@@ -84,15 +84,19 @@ namespace Project.LadderPaths.Editor
                 titleGroup.Add(subtitle);
                 header.Add(titleGroup);
                 VisualElement body = new VisualElement();
-                Button collapse = Button("▾", () =>
+                Button collapse = new Button { text = "▾" };
+                collapse.clicked += () =>
                 {
                     bool hidden = body.style.display.value == DisplayStyle.None;
                     body.style.display = hidden ? DisplayStyle.Flex : DisplayStyle.None;
-                });
+                    collapse.text = hidden ? "▾" : "▸";
+                };
                 collapse.style.width = 28f;
+                collapse.style.height = 24f;
                 header.Add(collapse);
                 panel.Add(header);
                 panel.Add(body);
+                MakeDraggable(panel, header);
 
                 status = new Label();
                 status.style.unityTextAlign = TextAnchor.MiddleCenter;
@@ -232,6 +236,75 @@ namespace Project.LadderPaths.Editor
                 VisualElement row = new VisualElement();
                 row.style.flexDirection = FlexDirection.Row;
                 return row;
+            }
+
+            private static void MakeDraggable(
+                VisualElement panel,
+                VisualElement header)
+            {
+                bool dragging = false;
+                int pointerId = -1;
+                Vector2 lastPointer = Vector2.zero;
+
+                header.RegisterCallback<PointerDownEvent>(evt =>
+                {
+                    if (evt.button != 0 ||
+                        evt.target is Button ||
+                        dragging)
+                    {
+                        return;
+                    }
+
+                    Rect layout = panel.layout;
+                    panel.style.left = layout.x;
+                    panel.style.top = layout.y;
+                    panel.style.right = StyleKeyword.Auto;
+                    panel.style.bottom = StyleKeyword.Auto;
+                    dragging = true;
+                    pointerId = evt.pointerId;
+                    lastPointer = new Vector2(evt.position.x, evt.position.y);
+                    header.CapturePointer(pointerId);
+                    evt.StopPropagation();
+                });
+
+                header.RegisterCallback<PointerMoveEvent>(evt =>
+                {
+                    if (!dragging || evt.pointerId != pointerId)
+                    {
+                        return;
+                    }
+
+                    Vector2 currentPointer = new Vector2(
+                        evt.position.x,
+                        evt.position.y);
+                    Vector2 delta = currentPointer - lastPointer;
+                    lastPointer = currentPointer;
+                    panel.style.left = panel.layout.x + delta.x;
+                    panel.style.top = panel.layout.y + delta.y;
+                    evt.StopPropagation();
+                });
+
+                header.RegisterCallback<PointerUpEvent>(evt =>
+                {
+                    if (!dragging || evt.pointerId != pointerId)
+                    {
+                        return;
+                    }
+
+                    dragging = false;
+                    header.ReleasePointer(pointerId);
+                    pointerId = -1;
+                    evt.StopPropagation();
+                });
+
+                header.RegisterCallback<PointerCaptureOutEvent>(evt =>
+                {
+                    if (evt.pointerId == pointerId)
+                    {
+                        dragging = false;
+                        pointerId = -1;
+                    }
+                });
             }
 
             private static Button Button(string text, Action action)
