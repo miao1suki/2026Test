@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using Project.PlatformPaths;
 using UnityEngine;
 
 namespace Project.RopePaths.Tests

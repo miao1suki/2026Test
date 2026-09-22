@@ -1,13 +1,11 @@
 {
-  "name": "Project.RopePaths.Editor",
-  "rootNamespace": "Project.RopePaths.Editor",
+  "name": "Project.PlatformPaths.Runtime",
+  "rootNamespace": "Project.PlatformPaths",
   "references": [
     "Project.RopePaths.Runtime",
-    "Project.PlatformPaths.Runtime"
+    "Project.CameraModes.Runtime"
   ],
-  "includePlatforms": [
-    "Editor"
-  ],
+  "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
   "overrideReferences": false,

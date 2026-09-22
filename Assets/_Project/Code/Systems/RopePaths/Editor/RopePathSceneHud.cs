@@ -2,6 +2,7 @@ using System;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
+using Project.PlatformPaths;
 
 namespace Project.RopePaths.Editor
 {
@@ -62,9 +63,12 @@ namespace Project.RopePaths.Editor
             internal RopeHudElements(VisualElement root)
             {
                 panel = CreatePanel(root);
-                AddTitle(panel, "绳子路径编辑", "四方向投影接续 · 端点吸附 · 平台绑定");
+                VisualElement body = AddTitle(
+                    panel,
+                    "绳子路径编辑",
+                    "四方向投影接续 · 端点吸附 · 平台绑定");
                 statusLabel = CreateBadge("当前场景未创建绳子路径网络");
-                panel.Add(statusLabel);
+                body.Add(statusLabel);
 
                 directionField = new EnumField("当前投影", RopeProjectionDirection.Front);
                 directionField.RegisterValueChangedCallback(evt =>
@@ -79,7 +83,7 @@ namespace Project.RopePaths.Editor
                     EditorUtility.SetDirty(network);
                     SceneView.RepaintAll();
                 });
-                panel.Add(directionField);
+                body.Add(directionField);
 
                 toleranceField = new FloatField("接续容差")
                 {
@@ -99,7 +103,7 @@ namespace Project.RopePaths.Editor
                     EditorUtility.SetDirty(network);
                     SceneView.RepaintAll();
                 });
-                panel.Add(toleranceField);
+                body.Add(toleranceField);
 
                 VisualElement createRow = CreateRow();
                 createNetworkButton = CreateButton("创建网络", () =>
@@ -120,7 +124,7 @@ namespace Project.RopePaths.Editor
                 createRow.Add(createNetworkButton);
                 createRow.Add(createRopeButton);
                 createRow.Add(createPlatformButton);
-                panel.Add(createRow);
+                body.Add(createRow);
 
                 Foldout endpointFoldout = new Foldout
                 {
@@ -193,9 +197,9 @@ namespace Project.RopePaths.Editor
                     SceneView.RepaintAll();
                 });
                 endpointFoldout.Add(unbindButton);
-                panel.Add(endpointFoldout);
+                body.Add(endpointFoldout);
 
-                panel.Add(CreateButton("重建四方向路径缓存", () =>
+                body.Add(CreateButton("重建四方向路径缓存", () =>
                 {
                     RopePathNetwork network = RopePathEditorService.FindActiveNetwork();
                     network?.RebuildPaths();
@@ -206,14 +210,14 @@ namespace Project.RopePaths.Editor
                 graphLabel.style.whiteSpace = WhiteSpace.Normal;
                 graphLabel.style.fontSize = 10f;
                 graphLabel.style.marginTop = 4f;
-                panel.Add(graphLabel);
+                body.Add(graphLabel);
                 Label help = new Label(
                     "拖动绳子根部手柄可整体移动/旋转；点击 A/B 端点后可单独调整；\n" +
                     "3D 黄色虚线与箭头表示当前投影下已识别的空间接续。平台只保存绑定，不包含移动逻辑。");
                 help.style.whiteSpace = WhiteSpace.Normal;
                 help.style.fontSize = 10f;
                 help.style.opacity = 0.68f;
-                panel.Add(help);
+                body.Add(help);
             }
 
             internal void Refresh()
@@ -268,18 +272,146 @@ namespace Project.RopePaths.Editor
                 return value;
             }
 
-            private static void AddTitle(VisualElement panel, string title, string subtitle)
+            private static VisualElement AddTitle(
+                VisualElement panel,
+                string title,
+                string subtitle)
             {
+                VisualElement header = CreateRow();
+                header.style.alignItems = Align.FlexStart;
+
+                VisualElement titleGroup = new VisualElement();
+                titleGroup.style.flexGrow = 1f;
                 Label titleLabel = new Label(title);
                 titleLabel.style.fontSize = 13f;
                 titleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-                panel.Add(titleLabel);
+                titleGroup.Add(titleLabel);
                 Label subtitleLabel = new Label(subtitle);
                 subtitleLabel.style.fontSize = 9f;
                 subtitleLabel.style.opacity = 0.65f;
                 subtitleLabel.style.marginBottom = 5f;
-                panel.Add(subtitleLabel);
+                titleGroup.Add(subtitleLabel);
+                header.Add(titleGroup);
+
+                VisualElement body = new VisualElement();
+                Button collapseButton = CreateCollapseButton(body);
+                header.Add(collapseButton);
+                panel.Add(header);
+                panel.Add(body);
+                MakePanelInteractive(panel, header);
+                return body;
             }
+
+            private static Button CreateCollapseButton(
+                VisualElement body)
+            {
+                Button button = new Button
+                {
+                    text = "▾"
+                };
+                button.style.width = 24f;
+                button.style.height = 20f;
+                button.style.marginLeft = 4f;
+                button.style.marginTop = 0f;
+                button.style.marginRight = 0f;
+                button.style.marginBottom = 0f;
+                button.style.backgroundColor =
+                    new Color(0.18f, 0.52f, 0.92f, 1f);
+                button.style.color = Color.white;
+                button.style.unityFontStyleAndWeight = FontStyle.Bold;
+                button.clicked += () =>
+                {
+                    bool collapsed =
+                        body.style.display.value == DisplayStyle.None;
+                    body.style.display = collapsed
+                        ? DisplayStyle.Flex
+                        : DisplayStyle.None;
+                    button.text = collapsed ? "▾" : "▸";
+                };
+                return button;
+            }
+
+            private static void MakePanelInteractive(
+                VisualElement panel,
+                VisualElement header)
+            {
+                MakeDraggable(panel, header);
+            }
+
+            private static void MakeDraggable(
+                VisualElement panel,
+                VisualElement header)
+            {
+                bool dragging = false;
+                int pointerId = -1;
+                Vector2 lastPointer = Vector2.zero;
+
+                header.RegisterCallback<PointerDownEvent>(evt =>
+                {
+                    if (evt.button != 0 ||
+                        evt.target is Button ||
+                        dragging)
+                    {
+                        return;
+                    }
+
+                    Rect layout = panel.layout;
+                    panel.style.left = layout.x;
+                    panel.style.top = layout.y;
+                    panel.style.right = StyleKeyword.Auto;
+                    panel.style.bottom = StyleKeyword.Auto;
+                    dragging = true;
+                    pointerId = evt.pointerId;
+                    lastPointer = new Vector2(
+                        evt.position.x,
+                        evt.position.y);
+                    header.CapturePointer(pointerId);
+                    evt.StopPropagation();
+                });
+
+                header.RegisterCallback<PointerMoveEvent>(evt =>
+                {
+                    if (!dragging || evt.pointerId != pointerId)
+                    {
+                        return;
+                    }
+
+                    Vector2 currentPointer = new Vector2(
+                        evt.position.x,
+                        evt.position.y);
+                    Vector2 delta =
+                        currentPointer - lastPointer;
+                    lastPointer = currentPointer;
+                    panel.style.left =
+                        panel.layout.x + delta.x;
+                    panel.style.top =
+                        panel.layout.y + delta.y;
+                    evt.StopPropagation();
+                });
+
+                header.RegisterCallback<PointerUpEvent>(evt =>
+                {
+                    if (!dragging || evt.pointerId != pointerId)
+                    {
+                        return;
+                    }
+
+                    dragging = false;
+                    header.ReleasePointer(pointerId);
+                    pointerId = -1;
+                    evt.StopPropagation();
+                });
+
+                header.RegisterCallback<PointerCaptureOutEvent>(evt =>
+                {
+                    if (evt.pointerId == pointerId)
+                    {
+                        dragging = false;
+                        pointerId = -1;
+                    }
+                });
+            }
+
 
             private static Label CreateBadge(string text)
             {

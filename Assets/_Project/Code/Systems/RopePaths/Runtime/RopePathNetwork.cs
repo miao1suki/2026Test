@@ -31,6 +31,16 @@ namespace Project.RopePaths
             set => editorDirection = value;
         }
 
+        public RopeProjectionDirection CurrentProjectionDirection
+        {
+            get => editorDirection;
+            set
+            {
+                editorDirection = value;
+                InvalidateCache();
+            }
+        }
+
         public IReadOnlyList<RopeSegment> Segments =>
             GetComponentsInChildren<RopeSegment>(true);
 

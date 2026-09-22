@@ -1,8 +1,10 @@
+using Project.RopePaths;
 using UnityEngine;
 
-namespace Project.RopePaths
+namespace Project.PlatformPaths
 {
     [DisallowMultipleComponent]
+    [RequireComponent(typeof(PlatformMove))]
     public sealed class RopePlatform : MonoBehaviour
     {
         [SerializeField]

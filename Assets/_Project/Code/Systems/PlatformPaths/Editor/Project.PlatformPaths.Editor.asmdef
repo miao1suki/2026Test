@@ -1,8 +1,7 @@
 {
-  "name": "Project.RopePaths.Editor",
-  "rootNamespace": "Project.RopePaths.Editor",
+  "name": "Project.PlatformPaths.Editor",
+  "rootNamespace": "Project.PlatformPaths.Editor",
   "references": [
-    "Project.RopePaths.Runtime",
     "Project.PlatformPaths.Runtime"
   ],
   "includePlatforms": [

@@ -1,6 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
+using Project.PlatformPaths;
 
 namespace Project.RopePaths.Editor
 {

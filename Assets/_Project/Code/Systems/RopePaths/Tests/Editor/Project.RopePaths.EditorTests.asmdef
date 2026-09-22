@@ -3,6 +3,7 @@
   "rootNamespace": "Project.RopePaths.Tests",
   "references": [
     "Project.RopePaths.Runtime",
+    "Project.PlatformPaths.Runtime",
     "Project.RopePaths.Editor",
     "UnityEngine.TestRunner",
     "UnityEditor.TestRunner"

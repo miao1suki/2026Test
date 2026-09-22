@@ -136,14 +136,17 @@ namespace Project.CubeMapEditing.Editor
                 root.Add(toolModePanel);
 
                 navigationPanel = CreatePanel(root, panelColor, 12f, 46f, null, null, 258f);
-                AddTitle(navigationPanel, "立方体地图编辑", "多场景协作工作区");
+                VisualElement navigationBody = AddTitle(
+                    navigationPanel,
+                    "立方体地图编辑",
+                    "多场景协作工作区");
                 sceneBadge = CreateBadge("未初始化");
-                navigationPanel.Add(sceneBadge);
+                navigationBody.Add(sceneBadge);
                 initializeButton = CreateButton(
                     "初始化 LV001 地图工作区",
                     () => RunDeferred(CubeMapWorkspaceService.InitializeWorkspace),
                     true);
-                navigationPanel.Add(initializeButton);
+                navigationBody.Add(initializeButton);
                 VisualElement navigationRow = CreateRow();
                 total2DButton = CreateButton(
                     "打开 2D 总拼",
@@ -153,19 +156,22 @@ namespace Project.CubeMapEditing.Editor
                     () => RunDeferred(CubeMapWorkspaceService.OpenMain3D));
                 navigationRow.Add(total2DButton);
                 navigationRow.Add(main3DButton);
-                navigationPanel.Add(navigationRow);
+                navigationBody.Add(navigationRow);
                 settingsButton = CreateButton(
                     "工作区参数",
                     () => RunDeferred(CubeMapWorkspaceService.SelectWorkspaceAsset));
-                navigationPanel.Add(settingsButton);
+                navigationBody.Add(settingsButton);
 
                 piecePanel = CreatePanel(root, panelColor, null, 46f, 12f, null, 250f);
-                AddTitle(piecePanel, "关卡小拼图", "每关独立 Scene，可分给不同策划");
+                VisualElement pieceBody = AddTitle(
+                    piecePanel,
+                    "关卡小拼图",
+                    "每关独立 Scene，可分给不同策划");
                 pieceLabel = new Label("第 00 / 00 关");
                 pieceLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
                 pieceLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
                 pieceLabel.style.marginBottom = 4f;
-                piecePanel.Add(pieceLabel);
+                pieceBody.Add(pieceLabel);
                 VisualElement pieceRow = CreateRow();
                 previousPieceButton = CreateButton("◀", PreviousPiece);
                 openPieceButton = CreateButton(
@@ -177,14 +183,17 @@ namespace Project.CubeMapEditing.Editor
                 pieceRow.Add(previousPieceButton);
                 pieceRow.Add(openPieceButton);
                 pieceRow.Add(nextPieceButton);
-                piecePanel.Add(pieceRow);
+                pieceBody.Add(pieceRow);
                 addPieceButton = CreateButton(
                     "＋ 新建下一关",
                     () => RunDeferred(CubeMapWorkspaceService.AddPieceAndOpen));
-                piecePanel.Add(addPieceButton);
+                pieceBody.Add(addPieceButton);
 
                 guidePanel = CreatePanel(root, panelColor, 12f, null, null, 12f, 258f);
-                AddTitle(guidePanel, "场景辅助", "色块对应四面，虚线表示分格");
+                VisualElement guideBody = AddTitle(
+                    guidePanel,
+                    "场景辅助",
+                    "色块对应四面，虚线表示分格");
                 guidesToggle = new Toggle("显示分面色块与网格")
                 {
                     value = GuidesVisible
@@ -194,19 +203,22 @@ namespace Project.CubeMapEditing.Editor
                     GuidesVisible = evt.newValue;
                     SceneView.RepaintAll();
                 });
-                guidePanel.Add(guidesToggle);
+                guideBody.Add(guidesToggle);
                 dimensionsLabel = new Label();
                 dimensionsLabel.style.fontSize = 10f;
                 dimensionsLabel.style.opacity = 0.68f;
                 dimensionsLabel.style.marginTop = 3f;
-                guidePanel.Add(dimensionsLabel);
+                guideBody.Add(dimensionsLabel);
 
                 buildPanel = CreatePanel(root, panelColor, null, null, 12f, 12f, 276f);
-                AddTitle(buildPanel, "生成与拼合", "生成场景可反复覆盖，源小拼图不受影响");
+                VisualElement buildBody = AddTitle(
+                    buildPanel,
+                    "生成与拼合",
+                    "生成场景可反复覆盖，源小拼图不受影响");
                 rebuild2DButton = CreateButton(
                     "刷新 2D 总拼预览",
                     () => RunDeferred(CubeMapWorkspaceService.BuildTotal2D));
-                buildPanel.Add(rebuild2DButton);
+                buildBody.Add(rebuild2DButton);
                 build3DButton = CreateButton(
                     "拼合并打开 3D 主场景",
                     () => RunDeferred(CubeMapWorkspaceService.BuildMain3D),
@@ -214,7 +226,7 @@ namespace Project.CubeMapEditing.Editor
                 build3DButton.style.height = 32f;
                 build3DButton.style.backgroundColor = new Color(0.18f, 0.52f, 0.92f, 1f);
                 build3DButton.style.color = Color.white;
-                buildPanel.Add(build3DButton);
+                buildBody.Add(build3DButton);
             }
 
             internal void Refresh()
@@ -363,19 +375,147 @@ namespace Project.CubeMapEditing.Editor
                 return panel;
             }
 
-            private static void AddTitle(VisualElement panel, string title, string subtitle)
+            private static VisualElement AddTitle(
+                VisualElement panel,
+                string title,
+                string subtitle)
             {
+                VisualElement header = CreateRow();
+                header.style.alignItems = Align.FlexStart;
+
+                VisualElement titleGroup = new VisualElement();
+                titleGroup.style.flexGrow = 1f;
                 Label titleLabel = new Label(title);
                 titleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
                 titleLabel.style.fontSize = 13f;
-                panel.Add(titleLabel);
+                titleGroup.Add(titleLabel);
 
                 Label subtitleLabel = new Label(subtitle);
                 subtitleLabel.style.fontSize = 9f;
                 subtitleLabel.style.opacity = 0.62f;
                 subtitleLabel.style.marginBottom = 5f;
-                panel.Add(subtitleLabel);
+                titleGroup.Add(subtitleLabel);
+                header.Add(titleGroup);
+
+                VisualElement body = new VisualElement();
+                Button collapseButton = CreateCollapseButton(body);
+                header.Add(collapseButton);
+                panel.Add(header);
+                panel.Add(body);
+                MakePanelInteractive(panel, header);
+                return body;
             }
+
+            private static Button CreateCollapseButton(
+                VisualElement body)
+            {
+                Button button = new Button
+                {
+                    text = "▾"
+                };
+                button.style.width = 24f;
+                button.style.height = 20f;
+                button.style.marginLeft = 4f;
+                button.style.marginTop = 0f;
+                button.style.marginRight = 0f;
+                button.style.marginBottom = 0f;
+                button.style.backgroundColor =
+                    new Color(0.18f, 0.52f, 0.92f, 1f);
+                button.style.color = Color.white;
+                button.style.unityFontStyleAndWeight = FontStyle.Bold;
+                button.clicked += () =>
+                {
+                    bool collapsed =
+                        body.style.display.value == DisplayStyle.None;
+                    body.style.display = collapsed
+                        ? DisplayStyle.Flex
+                        : DisplayStyle.None;
+                    button.text = collapsed ? "▾" : "▸";
+                };
+                return button;
+            }
+
+            private static void MakePanelInteractive(
+                VisualElement panel,
+                VisualElement header)
+            {
+                MakeDraggable(panel, header);
+            }
+
+            private static void MakeDraggable(
+                VisualElement panel,
+                VisualElement header)
+            {
+                bool dragging = false;
+                int pointerId = -1;
+                Vector2 lastPointer = Vector2.zero;
+
+                header.RegisterCallback<PointerDownEvent>(evt =>
+                {
+                    if (evt.button != 0 ||
+                        evt.target is Button ||
+                        dragging)
+                    {
+                        return;
+                    }
+
+                    Rect layout = panel.layout;
+                    panel.style.left = layout.x;
+                    panel.style.top = layout.y;
+                    panel.style.right = StyleKeyword.Auto;
+                    panel.style.bottom = StyleKeyword.Auto;
+                    dragging = true;
+                    pointerId = evt.pointerId;
+                    lastPointer = new Vector2(
+                        evt.position.x,
+                        evt.position.y);
+                    header.CapturePointer(pointerId);
+                    evt.StopPropagation();
+                });
+
+                header.RegisterCallback<PointerMoveEvent>(evt =>
+                {
+                    if (!dragging || evt.pointerId != pointerId)
+                    {
+                        return;
+                    }
+
+                    Vector2 currentPointer = new Vector2(
+                        evt.position.x,
+                        evt.position.y);
+                    Vector2 delta =
+                        currentPointer - lastPointer;
+                    lastPointer = currentPointer;
+                    panel.style.left =
+                        panel.layout.x + delta.x;
+                    panel.style.top =
+                        panel.layout.y + delta.y;
+                    evt.StopPropagation();
+                });
+
+                header.RegisterCallback<PointerUpEvent>(evt =>
+                {
+                    if (!dragging || evt.pointerId != pointerId)
+                    {
+                        return;
+                    }
+
+                    dragging = false;
+                    header.ReleasePointer(pointerId);
+                    pointerId = -1;
+                    evt.StopPropagation();
+                });
+
+                header.RegisterCallback<PointerCaptureOutEvent>(evt =>
+                {
+                    if (evt.pointerId == pointerId)
+                    {
+                        dragging = false;
+                        pointerId = -1;
+                    }
+                });
+            }
+
 
             private static Label CreateBadge(string text)
             {
