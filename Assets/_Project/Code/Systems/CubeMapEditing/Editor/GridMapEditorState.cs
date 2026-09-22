@@ -9,7 +9,7 @@ namespace Project.CubeMapEditing.Editor
         private const string FacePreference = "2026Test.GridMap.Face";
         private const string RotationPreference = "2026Test.GridMap.Rotation";
         private const string SnapPreference = "2026Test.GridMap.Snap";
-        private const string OverlapPreference = "2026Test.GridMap.Overlap";
+        private const string OverlapPreference = "2026Test.GridMap.OverlapV2";
 
         internal static CubeMapFace ActiveFace
         {
@@ -34,7 +34,7 @@ namespace Project.CubeMapEditing.Editor
 
         internal static bool AllowOverlap
         {
-            get => EditorPrefs.GetBool(OverlapPreference, false);
+            get => EditorPrefs.GetBool(OverlapPreference, true);
             set => EditorPrefs.SetBool(OverlapPreference, value);
         }
 

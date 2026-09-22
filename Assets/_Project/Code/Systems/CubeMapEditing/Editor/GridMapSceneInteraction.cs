@@ -387,16 +387,10 @@ namespace Project.CubeMapEditing.Editor
             Vector2 localPoint,
             GridMapItemDefinition definition)
         {
-            Vector2 cellSize = GridMapEditorService.GetCellSize(context.Workspace);
-            Vector2 local = localPoint + new Vector2(
-                context.Workspace.FaceWidth * 0.5f,
-                context.Workspace.PieceHeight * 0.5f);
             Vector2Int footprint = GridMapEditorService.GetFootprintSize(
                 definition,
                 GridMapEditorState.RotationSteps);
-            int x = Mathf.FloorToInt(local.x / cellSize.x - footprint.x * 0.5f);
-            int y = Mathf.FloorToInt(local.y / cellSize.y - footprint.y * 0.5f);
-            return new Vector2Int(x, y);
+            return GridMapEditorService.GetAnchorCell(context, localPoint, footprint);
         }
 
         private static Vector2 CellCenter(
@@ -430,18 +424,13 @@ namespace Project.CubeMapEditing.Editor
                 ? CellCenter(context, anchor, definition)
                 : unsnappedPosition;
             Rect candidate = new Rect(
-                position - Vector2.Scale(
-                    footprint,
-                    GridMapEditorService.GetCellSize(context.Workspace)) * 0.5f,
-                Vector2.Scale(
-                    footprint,
-                    GridMapEditorService.GetCellSize(context.Workspace)));
-            Rect faceRect = new Rect(
-                -context.Workspace.FaceWidth * 0.5f,
-                -context.Workspace.PieceHeight * 0.5f,
-                context.Workspace.FaceWidth,
-                context.Workspace.PieceHeight);
-            if (!faceRect.Contains(candidate.min) || !faceRect.Contains(candidate.max))
+                position - GridMapEditorService.GetFootprintWorldSize(
+                    context.Workspace,
+                    footprint) * 0.5f,
+                GridMapEditorService.GetFootprintWorldSize(
+                    context.Workspace,
+                    footprint));
+            if (!GridMapEditorService.IsInsideFace(context, candidate))
             {
                 return false;
             }
@@ -453,8 +442,9 @@ namespace Project.CubeMapEditing.Editor
 
             foreach (GridMapPlacement placement in GridMapEditorService.EnumeratePlacements(context))
             {
-                if (!placement.AllowOverlap &&
-                    candidate.Overlaps(GridMapEditorService.GetPlacementRect(context, placement)))
+                if (GridMapEditorService.RectsOverlapWithArea(
+                        candidate,
+                        GridMapEditorService.GetPlacementRect(context, placement)))
                 {
                     return false;
                 }
@@ -466,7 +456,7 @@ namespace Project.CubeMapEditing.Editor
         private static void DrawGrid(GridMapPieceContext context)
         {
             Transform faceRoot = context.FaceRoot;
-            Vector2 cellSize = GridMapEditorService.GetCellSize(context.Workspace);
+            Vector2 cellSize = GridMapEditorService.GetPlacementCellSize(context.Workspace);
             Matrix4x4 previous = Handles.matrix;
             Color previousColor = Handles.color;
             CompareFunction previousZTest = Handles.zTest;
@@ -475,17 +465,23 @@ namespace Project.CubeMapEditing.Editor
             Handles.color = new Color(0.18f, 0.68f, 1f, 0.45f);
             float halfWidth = context.Workspace.FaceWidth * 0.5f;
             float halfHeight = context.Workspace.PieceHeight * 0.5f;
-            for (int x = 0; x <= context.Workspace.ColumnsPerFace; x++)
+            for (int x = 0; x <= context.Workspace.PlacementColumnsPerFace; x++)
             {
                 float localX = -halfWidth + x * cellSize.x;
+                Handles.color = x % context.Workspace.PlacementGridSubdivisions == 0
+                    ? new Color(0.18f, 0.68f, 1f, 0.45f)
+                    : new Color(0.18f, 0.68f, 1f, 0.18f);
                 Handles.DrawLine(
                     new Vector3(localX, -halfHeight, -0.01f),
                     new Vector3(localX, halfHeight, -0.01f));
             }
 
-            for (int y = 0; y <= context.Workspace.RowsPerPiece; y++)
+            for (int y = 0; y <= context.Workspace.PlacementRowsPerPiece; y++)
             {
                 float localY = -halfHeight + y * cellSize.y;
+                Handles.color = y % context.Workspace.PlacementGridSubdivisions == 0
+                    ? new Color(0.18f, 0.68f, 1f, 0.45f)
+                    : new Color(0.18f, 0.68f, 1f, 0.18f);
                 Handles.DrawLine(
                     new Vector3(-halfWidth, localY, -0.01f),
                     new Vector3(halfWidth, localY, -0.01f));

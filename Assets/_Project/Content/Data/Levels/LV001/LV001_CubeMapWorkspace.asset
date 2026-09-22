@@ -17,6 +17,7 @@ MonoBehaviour:
   pieceHeight: 4
   columnsPerFace: 6
   rowsPerPiece: 2
+  placementGridSubdivisions: 4
   total2DScenePath: Assets/_Project/Scenes/Levels/LV001/LV001_Map2D.unity
   main3DScenePath: Assets/_Project/Scenes/Levels/LV001/LV001_Main3D.unity
   pieceScenePaths:

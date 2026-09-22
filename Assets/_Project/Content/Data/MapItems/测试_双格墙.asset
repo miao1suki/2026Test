@@ -17,5 +17,5 @@ MonoBehaviour:
   widthInCells: 1
   heightInCells: 2
   pivotOffset: {x: 0, y: 0}
-  allowOverlapByDefault: 0
+  allowOverlapByDefault: 1
   snapToGridByDefault: 1
