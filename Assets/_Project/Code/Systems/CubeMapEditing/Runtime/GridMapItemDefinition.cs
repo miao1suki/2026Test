@@ -12,7 +12,7 @@ namespace Project.CubeMapEditing
         [SerializeField, Min(1)] private int widthInCells = 1;
         [SerializeField, Min(1)] private int heightInCells = 1;
         [SerializeField] private Vector2 pivotOffset;
-        [SerializeField] private bool allowOverlapByDefault;
+        [SerializeField] private bool allowOverlapByDefault = true;
         [SerializeField] private bool snapToGridByDefault = true;
 
         public string DisplayName => string.IsNullOrWhiteSpace(displayName)

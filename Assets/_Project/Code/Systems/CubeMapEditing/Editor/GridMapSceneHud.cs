@@ -63,6 +63,7 @@ namespace Project.CubeMapEditing.Editor
             private readonly VisualElement panel;
             private readonly Label statusLabel;
             private readonly Label cellLabel;
+            private readonly IntegerField placementSubdivisionField;
             private readonly Label currentItemLabel;
             private readonly Label selectedLabel;
             private readonly VisualElement paletteItems;
@@ -104,6 +105,27 @@ namespace Project.CubeMapEditing.Editor
                     SceneView.RepaintAll();
                 });
                 workspaceCard.Add(faceField);
+                placementSubdivisionField = new IntegerField("放置网格细分")
+                {
+                    isDelayed = true,
+                    value = 4,
+                    tooltip = "每个拼图大格再细分的放置步长；数值越大，可摆放的位置越密"
+                };
+                placementSubdivisionField.RegisterValueChangedCallback(evt =>
+                {
+                    GridMapPieceContext context = GridMapEditorService.FindActivePiece();
+                    if (!context.IsValid)
+                    {
+                        return;
+                    }
+
+                    Undo.RecordObject(context.Workspace, "修改放置网格细分");
+                    context.Workspace.SetPlacementGridSubdivisions(evt.newValue);
+                    EditorUtility.SetDirty(context.Workspace);
+                    AssetDatabase.SaveAssets();
+                    SceneView.RepaintAll();
+                });
+                workspaceCard.Add(placementSubdivisionField);
                 panel.Add(workspaceCard);
 
                 VisualElement currentCard = CreateCard("当前物品", "点击物品进入摆放模式；R 或按钮旋转");
@@ -197,7 +219,7 @@ namespace Project.CubeMapEditing.Editor
                 sizeRow.Add(widthField);
                 sizeRow.Add(heightField);
                 createFoldout.Add(sizeRow);
-                createOverlapToggle = new Toggle("默认允许叠加");
+                createOverlapToggle = new Toggle("默认允许叠加") { value = true };
                 createSnapToggle = new Toggle("默认吸附网格") { value = true };
                 createFoldout.Add(createOverlapToggle);
                 createFoldout.Add(createSnapToggle);
@@ -240,16 +262,24 @@ namespace Project.CubeMapEditing.Editor
                 }
 
                 Vector2 cellSize = context.Workspace.CellSize;
+                Vector2 placementCellSize = context.Workspace.PlacementCellSize;
                 statusLabel.text = $"小拼图 {context.Piece.PieceIndex:00} · {CubeMapLayoutMath.GetFaceLabel(context.Face)}";
-                cellLabel.text = $"{context.Workspace.ColumnsPerFace} × {context.Workspace.RowsPerPiece} 格\n单元格 {cellSize.x:0.###} × {cellSize.y:0.###}";
+                cellLabel.text = $"拼图基准网格 {context.Workspace.ColumnsPerFace} × {context.Workspace.RowsPerPiece} 格\n" +
+                                 $"物品尺寸单位 {cellSize.x:0.###} × {cellSize.y:0.###}\n" +
+                                 $"放置网格 {context.Workspace.PlacementColumnsPerFace} × " +
+                                 $"{context.Workspace.PlacementRowsPerPiece} 格 · 步长 " +
+                                 $"{placementCellSize.x:0.###} × {placementCellSize.y:0.###}";
                 faceField.SetValueWithoutNotify(GridMapEditorState.ActiveFace);
+                placementSubdivisionField.SetValueWithoutNotify(
+                    context.Workspace.PlacementGridSubdivisions);
                 overlapToggle.SetValueWithoutNotify(GridMapEditorState.AllowOverlap);
                 snapToggle.SetValueWithoutNotify(GridMapEditorState.SnapToGrid);
                 rotationLabel.text = $"旋转：{GridMapEditorState.RotationSteps * 90}°";
                 GridMapItemDefinition current = GridMapEditorState.CurrentItem;
                 currentItemLabel.text = current == null
                     ? "未选择物品\n左键点击仓库中的物品"
-                    : $"{current.DisplayName}\n占用 {current.SizeInCells.x} × {current.SizeInCells.y} 格";
+                    : $"{current.DisplayName}\n占用基准网格 {current.SizeInCells.x} × " +
+                      $"{current.SizeInCells.y} 格";
                 itemPreview.image = current != null
                     ? AssetPreview.GetAssetPreview(current.Prefab)
                     : null;

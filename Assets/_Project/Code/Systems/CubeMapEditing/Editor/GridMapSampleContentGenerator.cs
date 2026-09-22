@@ -148,7 +148,7 @@ namespace Project.CubeMapEditing.Editor
                 prefab,
                 footprint,
                 Vector2.zero,
-                false,
+                true,
                 true);
             EditorUtility.SetDirty(definition);
             return definition;

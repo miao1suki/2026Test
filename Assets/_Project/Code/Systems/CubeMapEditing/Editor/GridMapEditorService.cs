@@ -108,6 +108,18 @@ namespace Project.CubeMapEditing.Editor
             return workspace != null ? workspace.CellSize : Vector2.one;
         }
 
+        internal static Vector2 GetPlacementCellSize(CubeMapWorkspaceDefinition workspace)
+        {
+            return workspace != null ? workspace.PlacementCellSize : Vector2.one;
+        }
+
+        internal static Vector2 GetFootprintWorldSize(
+            CubeMapWorkspaceDefinition workspace,
+            Vector2Int footprint)
+        {
+            return Vector2.Scale(footprint, GetCellSize(workspace));
+        }
+
         internal static Vector2Int GetFootprintSize(
             GridMapItemDefinition definition,
             int rotationSteps)
@@ -127,20 +139,43 @@ namespace Project.CubeMapEditing.Editor
             GridMapPieceContext context,
             GridMapPlacement placement)
         {
-            Vector2 cellSize = GetCellSize(context.Workspace);
-            Vector2Int size = placement.RotatedSizeInCells;
-            if (!placement.SnappedToGrid)
-            {
-                Vector2 center = placement.UnsnappedLocalPosition;
-                return new Rect(
-                    center - Vector2.Scale(size, cellSize) * 0.5f,
-                    Vector2.Scale(size, cellSize));
-            }
+            Vector3 localPosition = context.FaceRoot.InverseTransformPoint(
+                placement.transform.position);
+            Vector2 center = new Vector2(localPosition.x, localPosition.y);
+            Vector2 size = GetFootprintWorldSize(
+                context.Workspace,
+                placement.RotatedSizeInCells);
+            return new Rect(center - size * 0.5f, size);
+        }
 
-            Vector2 min = new Vector2(
-                -context.Workspace.FaceWidth * 0.5f + placement.AnchorCell.x * cellSize.x,
-                -context.Workspace.PieceHeight * 0.5f + placement.AnchorCell.y * cellSize.y);
-            return new Rect(min, Vector2.Scale(size, cellSize));
+        internal static Vector2Int GetAnchorCell(
+            GridMapPieceContext context,
+            Vector2 localPoint,
+            Vector2Int footprint)
+        {
+            Vector2 snapStep = GetPlacementCellSize(context.Workspace);
+            Vector2 footprintSize = GetFootprintWorldSize(context.Workspace, footprint);
+            Vector2 faceMin = new Vector2(
+                -context.Workspace.FaceWidth * 0.5f,
+                -context.Workspace.PieceHeight * 0.5f);
+            Vector2 desiredMin = localPoint - footprintSize * 0.5f;
+            int maxX = Mathf.Max(
+                0,
+                Mathf.FloorToInt(
+                    (context.Workspace.FaceWidth - footprintSize.x) / snapStep.x + 0.0001f));
+            int maxY = Mathf.Max(
+                0,
+                Mathf.FloorToInt(
+                    (context.Workspace.PieceHeight - footprintSize.y) / snapStep.y + 0.0001f));
+            int x = Mathf.Clamp(
+                Mathf.RoundToInt((desiredMin.x - faceMin.x) / snapStep.x),
+                0,
+                maxX);
+            int y = Mathf.Clamp(
+                Mathf.RoundToInt((desiredMin.y - faceMin.y) / snapStep.y),
+                0,
+                maxY);
+            return new Vector2Int(x, y);
         }
 
         internal static Vector3 GetPlacementLocalPosition(
@@ -155,12 +190,13 @@ namespace Project.CubeMapEditing.Editor
                 return new Vector3(unsnappedPosition.x, unsnappedPosition.y, 0f);
             }
 
-            Vector2 cellSize = GetCellSize(context.Workspace);
+            Vector2 snapStep = GetPlacementCellSize(context.Workspace);
+            Vector2 footprintSize = GetFootprintWorldSize(context.Workspace, footprint);
             return new Vector3(
                 -context.Workspace.FaceWidth * 0.5f +
-                (anchorCell.x + footprint.x * 0.5f) * cellSize.x,
+                anchorCell.x * snapStep.x + footprintSize.x * 0.5f,
                 -context.Workspace.PieceHeight * 0.5f +
-                (anchorCell.y + footprint.y * 0.5f) * cellSize.y,
+                anchorCell.y * snapStep.y + footprintSize.y * 0.5f,
                 0f);
         }
 
@@ -246,6 +282,28 @@ namespace Project.CubeMapEditing.Editor
                    localPoint.x <= context.Workspace.FaceWidth * 0.5f &&
                    localPoint.y >= -context.Workspace.PieceHeight * 0.5f &&
                    localPoint.y <= context.Workspace.PieceHeight * 0.5f;
+        }
+
+        internal static bool IsInsideFace(
+            GridMapPieceContext context,
+            Rect rect)
+        {
+            const float tolerance = 0.0001f;
+            float halfWidth = context.Workspace.FaceWidth * 0.5f;
+            float halfHeight = context.Workspace.PieceHeight * 0.5f;
+            return rect.xMin >= -halfWidth - tolerance &&
+                   rect.xMax <= halfWidth + tolerance &&
+                   rect.yMin >= -halfHeight - tolerance &&
+                   rect.yMax <= halfHeight + tolerance;
+        }
+
+        internal static bool RectsOverlapWithArea(Rect first, Rect second)
+        {
+            const float tolerance = 0.0001f;
+            return first.xMin < second.xMax - tolerance &&
+                   first.xMax > second.xMin + tolerance &&
+                   first.yMin < second.yMax - tolerance &&
+                   first.yMax > second.yMin + tolerance;
         }
 
         private static GameObject ResolvePrefab(GameObject source, string displayName)

@@ -23,6 +23,9 @@ namespace Project.CubeMapEditing
         [SerializeField, Min(1)]
         private int rowsPerPiece = 2;
 
+        [SerializeField, Range(1, 16)]
+        private int placementGridSubdivisions = 4;
+
         [SerializeField]
         private string total2DScenePath;
 
@@ -37,6 +40,7 @@ namespace Project.CubeMapEditing
         public float PieceHeight => pieceHeight;
         public int ColumnsPerFace => columnsPerFace;
         public int RowsPerPiece => rowsPerPiece;
+        public int PlacementGridSubdivisions => placementGridSubdivisions;
         public string Total2DScenePath => total2DScenePath;
         public string Main3DScenePath => main3DScenePath;
         public IReadOnlyList<string> PieceScenePaths => pieceScenePaths;
@@ -45,6 +49,9 @@ namespace Project.CubeMapEditing
         public Vector2 CellSize => new Vector2(
             faceWidth / Mathf.Max(1, columnsPerFace),
             pieceHeight / Mathf.Max(1, rowsPerPiece));
+        public Vector2 PlacementCellSize => CellSize / Mathf.Max(1, placementGridSubdivisions);
+        public int PlacementColumnsPerFace => ColumnsPerFace * Mathf.Max(1, placementGridSubdivisions);
+        public int PlacementRowsPerPiece => RowsPerPiece * Mathf.Max(1, placementGridSubdivisions);
 
         public void Configure(
             string id,
@@ -64,6 +71,11 @@ namespace Project.CubeMapEditing
             main3DScenePath = foldedScenePath;
         }
 
+        public void SetPlacementGridSubdivisions(int subdivisions)
+        {
+            placementGridSubdivisions = Mathf.Clamp(subdivisions, 1, 16);
+        }
+
         public bool AddPieceScene(string scenePath)
         {
             if (string.IsNullOrWhiteSpace(scenePath) || pieceScenePaths.Contains(scenePath))
@@ -81,6 +93,7 @@ namespace Project.CubeMapEditing
             pieceHeight = Mathf.Max(0.1f, pieceHeight);
             columnsPerFace = Mathf.Max(1, columnsPerFace);
             rowsPerPiece = Mathf.Max(1, rowsPerPiece);
+            placementGridSubdivisions = Mathf.Clamp(placementGridSubdivisions, 1, 16);
             pieceScenePaths.RemoveAll(string.IsNullOrWhiteSpace);
         }
     }
