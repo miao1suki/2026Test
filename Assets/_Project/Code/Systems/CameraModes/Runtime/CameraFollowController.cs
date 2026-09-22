@@ -5,7 +5,9 @@ namespace Project.CameraModes
     [DisallowMultipleComponent]
     [DefaultExecutionOrder(500)]
     [RequireComponent(typeof(CameraControlManager))]
-    public sealed class CameraFollowController : MonoBehaviour
+    public sealed class CameraFollowController :
+        MonoBehaviour,
+        ICameraViewModeRequester
     {
         [SerializeField]
         [Tooltip("统一管理相机焦点与输出的组件。留空时从当前物体查找。")]
@@ -21,8 +23,20 @@ namespace Project.CameraModes
 
         [Header("跟随模式")]
         [SerializeField]
+        [HideInInspector]
         [Tooltip("找不到 CameraModeController 时使用的备用模式。")]
         private CameraViewMode fallbackMode = CameraViewMode.Side2D;
+
+        [SerializeField]
+        [HideInInspector]
+        private CameraViewMode requestedMode = CameraViewMode.Perspective3D;
+
+        [SerializeField]
+        [HideInInspector]
+        private float requestedSide2DYawDegrees;
+
+        [SerializeField]
+        private bool requestOnEnable = true;
 
         [Header("2D 跟随")]
         [SerializeField]
@@ -55,10 +69,19 @@ namespace Project.CameraModes
         private Vector3 velocity;
         private Vector3 previousTargetPosition;
         private bool hasFocus;
+        private CameraViewModeRequestHandle requestedModeHandle;
 
         public Transform Target => target;
         public Vector3 FocusPoint => currentFocus;
         public CameraViewMode FollowMode => ResolveMode();
+        public CameraViewMode RequestedMode => requestedMode;
+        public float RequestedSide2DYawDegrees =>
+            requestedSide2DYawDegrees;
+        public CameraModeController ModeController => modeController;
+        public string CameraModeRequesterName =>
+            "Camera Follow Controller";
+        public int CameraModeRequestPriority =>
+            CameraControlPriorities.Gameplay;
 
         private void Reset()
         {
@@ -77,6 +100,28 @@ namespace Project.CameraModes
         private void OnEnable()
         {
             ResolveReferences();
+            if (requestOnEnable && modeController != null)
+            {
+                if (requestedMode == CameraViewMode.Side2D)
+                {
+                    SetRequestedMode(
+                        requestedMode,
+                        requestedSide2DYawDegrees);
+                }
+                else
+                {
+                    SetRequestedMode(requestedMode);
+                }
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (requestedModeHandle.IsValid)
+            {
+                requestedModeHandle.Release(true);
+            }
+            requestedModeHandle = default;
         }
 
         private void LateUpdate()
@@ -158,11 +203,202 @@ namespace Project.CameraModes
 
         public void SetFallbackMode(CameraViewMode viewMode, bool snap = false)
         {
+            if (modeController != null)
+            {
+                SetRequestedMode(viewMode, snap);
+                return;
+            }
+
             fallbackMode = viewMode;
             if (snap)
             {
                 Snap();
             }
+        }
+
+        public void SetRequestedMode(
+            CameraViewMode mode,
+            bool immediate = false)
+        {
+            SetRequestedMode(
+                mode,
+                requestedSide2DYawDegrees,
+                false,
+                immediate);
+        }
+
+        public void SetRequestedMode(
+            CameraViewMode mode,
+            float side2DYawDegrees,
+            bool immediate = false)
+        {
+            requestedSide2DYawDegrees = side2DYawDegrees;
+            SetRequestedMode(
+                mode,
+                side2DYawDegrees,
+                true,
+                immediate);
+        }
+
+        public void AdjustRequestedSide2DYaw(
+            float deltaDegrees,
+            bool immediate = false)
+        {
+            requestedSide2DYawDegrees = Mathf.Repeat(
+                requestedSide2DYawDegrees + deltaDegrees + 180f,
+                360f) - 180f;
+            SetRequestedMode(
+                CameraViewMode.Side2D,
+                requestedSide2DYawDegrees,
+                true,
+                immediate);
+        }
+
+        public void TurnRequestedLeft90(bool immediate = false)
+        {
+            AdjustRequestedSide2DYaw(-90f, immediate);
+        }
+
+        public void TurnRequestedRight90(bool immediate = false)
+        {
+            AdjustRequestedSide2DYaw(90f, immediate);
+        }
+
+        private void SetRequestedMode(
+            CameraViewMode mode,
+            float side2DYawDegrees,
+            bool overrideSide2DYaw,
+            bool immediate)
+        {
+            CameraTransition transition = immediate
+                ? CameraTransition.Immediate
+                : modeController != null
+                    ? modeController.ModeTransition
+                    : CameraTransition.Immediate;
+            SetRequestedMode(
+                mode,
+                side2DYawDegrees,
+                overrideSide2DYaw,
+                transition);
+        }
+
+        public void SetRequestedMode(
+            CameraViewMode mode,
+            CameraTransition transition)
+        {
+            SetRequestedMode(
+                mode,
+                requestedSide2DYawDegrees,
+                false,
+                transition);
+        }
+
+        public void SetRequestedMode(
+            CameraViewMode mode,
+            float side2DYawDegrees,
+            CameraTransition transition)
+        {
+            requestedSide2DYawDegrees = side2DYawDegrees;
+            SetRequestedMode(
+                mode,
+                side2DYawDegrees,
+                true,
+                transition);
+        }
+
+        private void SetRequestedMode(
+            CameraViewMode mode,
+            float side2DYawDegrees,
+            bool overrideSide2DYaw,
+            CameraTransition transition)
+        {
+            requestedMode = mode;
+            ResolveReferences();
+            if (modeController == null)
+            {
+                fallbackMode = mode;
+                if (transition.duration <= 0f)
+                {
+                    Snap();
+                }
+                return;
+            }
+
+            CameraViewModeRequestHandle previousHandle =
+                requestedModeHandle;
+            requestedModeHandle =
+                overrideSide2DYaw
+                    ? modeController.RequestMode(
+                        this,
+                        mode,
+                        side2DYawDegrees,
+                        transition)
+                    : modeController.RequestMode(
+                        this,
+                        mode,
+                        transition);
+            if (previousHandle.IsValid)
+            {
+                previousHandle.Release(
+                    transition.duration <= 0f);
+            }
+            if (transition.duration <= 0f)
+            {
+                Snap();
+            }
+        }
+
+        public CameraViewModeRequestHandle RequestViewMode(
+            CameraViewMode mode,
+            bool immediate = false)
+        {
+            ResolveReferences();
+            return modeController != null
+                ? modeController.RequestMode(this, mode, immediate)
+                : default;
+        }
+
+        public CameraViewModeRequestHandle RequestViewMode(
+            CameraViewMode mode,
+            float side2DYawDegrees,
+            bool immediate = false)
+        {
+            ResolveReferences();
+            return modeController != null
+                ? modeController.RequestMode(
+                    this,
+                    mode,
+                    side2DYawDegrees,
+                    immediate)
+                : default;
+        }
+
+        public CameraViewModeRequestHandle RequestViewMode(
+            CameraViewMode mode,
+            CameraTransition transition)
+        {
+            ResolveReferences();
+            return modeController != null
+                ? modeController.RequestMode(
+                    this,
+                    mode,
+                    transition)
+                : default;
+        }
+
+        public CameraViewModeRequestHandle RequestViewMode(
+            CameraViewMode mode,
+            float side2DYawDegrees,
+            CameraTransition transition)
+        {
+            ResolveReferences();
+            return modeController != null
+                ? modeController.RequestMode(
+                    this,
+                    mode,
+                    side2DYawDegrees,
+                    transition)
+                : default;
         }
 
         public void Snap()

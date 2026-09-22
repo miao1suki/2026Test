@@ -5,6 +5,13 @@ namespace Project.CameraModes.Tests
 {
     public sealed class CameraControlManagerTests
     {
+        private sealed class FixedModeRequester : ICameraViewModeRequester
+        {
+            public string CameraModeRequesterName => "Test Mode Requester";
+            public int CameraModeRequestPriority =>
+                CameraControlPriorities.Cutscene;
+        }
+
         private sealed class FixedSource : ICameraControlSource
         {
             public FixedSource(string name, Vector3 position, CameraProjectionMode projection)
@@ -157,6 +164,36 @@ namespace Project.CameraModes.Tests
             Assert.That(succeeded, Is.True);
             Assert.That(emergencyHandle.HasControl, Is.True);
             Assert.That(cameraObject.transform.position, Is.EqualTo(Vector3.right));
+        }
+
+        [Test]
+        public void ViewModeAuthority_OverridesActiveSourceProjection()
+        {
+            CameraModeController modeController =
+                cameraObject.AddComponent<CameraModeController>();
+            modeController.Configure(cameraComponent, null, true);
+            modeController.SnapToMode(
+                CameraViewMode.Perspective3D,
+                false);
+            manager.ConfigureOutput(cameraComponent);
+
+            FixedSource source = new FixedSource(
+                "Visual Only",
+                new Vector3(0f, 4f, -8f),
+                CameraProjectionMode.Perspective);
+            manager.RequestControl(
+                source,
+                CameraControlPriorities.Cutscene,
+                CameraInterruptionPolicy.AllowHigherPriority,
+                CameraTransition.Immediate);
+            modeController.RequestMode(
+                new FixedModeRequester(),
+                CameraViewMode.Side2D,
+                true);
+
+            manager.Tick(0f);
+
+            Assert.That(cameraComponent.orthographic, Is.True);
         }
 
         private static void AssertMatricesEqual(Matrix4x4 expected, Matrix4x4 actual, float tolerance)

@@ -87,9 +87,17 @@ public static class TimelineClipInfoOverlay
                 : (c.useSurroundMode
                     ? $"环绕半径 {c.surroundRadius:F1}m · 角度 {c.surroundTotalAngle:F0}°"
                     : $"机位 {c.cameraTargetLocalPos} · 连续运镜 {(c.useLastFrameAsOrigin ? "开" : "关")}");
-            string projection = c.overrideProjection
-                ? $" · {(c.projection == TimelineCameraProjection.Orthographic ? "正交 2D" : "透视 3D")}"
-                : " · 跟随 Project 投影";
+            string projection = c.modeRequest switch
+            {
+                TimelineCameraModeRequest.Side2D => " · 申请正交 2D",
+                TimelineCameraModeRequest.Perspective3D => " · 申请透视 3D",
+                _ => " · 跟随 Project 模式"
+            };
+            if (c.modeRequest == TimelineCameraModeRequest.Side2D &&
+                c.overrideSide2DYaw)
+            {
+                projection += $" · Yaw {c.side2DYawDegrees:F0}°";
+            }
             if (c.constrainOrthographicAxes)
             {
                 string axes =
@@ -100,8 +108,7 @@ public static class TimelineClipInfoOverlay
                     ? " · 2D 全轴锁定"
                     : $" · 2D 轴 {axes}";
             }
-            if (c.overrideProjection &&
-                c.projection == TimelineCameraProjection.Orthographic &&
+            if (c.modeRequest == TimelineCameraModeRequest.Side2D &&
                 c.turnTiming != Camera2DTurnTiming.None)
             {
                 string timing = c.turnTiming == Camera2DTurnTiming.AtClipStart

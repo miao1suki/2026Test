@@ -1,3 +1,4 @@
+using Project.CameraModes;
 using UnityEngine;
 using UnityEngine.Playables;
 using UnityEngine.Timeline;
@@ -11,14 +12,15 @@ public class CameraTimelineBehaviour : PlayableBehaviour
     private bool _warned;
     private Vector3 _originWorldPos;
     private Quaternion _originWorldRot;
-    private float _planarYawAtClipStart;
     private float _surroundStartAngle;
+    private CameraViewModeRequestHandle _modeRequestHandle;
+    private bool _modeRequestAttempted;
 
     public override void OnBehaviourPlay(Playable playable, FrameData info)
     {
         _inited = false;
         _warned = false;
-        _planarYawAtClipStart = 0f;
+        _modeRequestAttempted = false;
     }
 
     public override void ProcessFrame(Playable playable, FrameData info, object playerData)
@@ -51,7 +53,6 @@ public class CameraTimelineBehaviour : PlayableBehaviour
         {
             _inited = true;
             rig.CaptureNormalState();
-            _planarYawAtClipStart = rig.PlanarYaw;
             if (!clip.useLastFrameAsOrigin)
             {
                 _originWorldPos = rig.CurrentPosition;
@@ -74,6 +75,10 @@ public class CameraTimelineBehaviour : PlayableBehaviour
 
         float currentTime = (float)playable.GetTime();
         float deltaTime = Mathf.Max(0f, (float)info.deltaTime);
+        RequestClipMode(
+            rig,
+            currentTime,
+            totalDuration);
         Vector3 currentPosition = rig.CurrentPosition;
         Quaternion currentRotation = rig.CurrentRotation;
         Transform anchor = rig.AnchorTransform;
@@ -103,8 +108,7 @@ public class CameraTimelineBehaviour : PlayableBehaviour
             ApplyShot(
                 rig,
                 resetPosition,
-                resetRotation,
-                clip.resetSubMode == ResetCamSubMode.Teleport ? 0f : clip.projectionTransitionDuration);
+                resetRotation);
             return;
         }
 
@@ -116,10 +120,9 @@ public class CameraTimelineBehaviour : PlayableBehaviour
             baseProgress = Mathf.Clamp01(clip.motionCurve.Evaluate(baseProgress));
         }
 
-        float planarTurnAngle = EvaluatePlanarYaw(
-            rig,
-            currentTime,
-            totalDuration);
+        float planarTurnAngle = IsOrthographicMode(rig)
+            ? rig.PlanarYaw
+            : 0f;
         Quaternion planarTurn = Quaternion.Euler(0f, planarTurnAngle, 0f);
         Vector3 worldTargetPosition =
             anchor.TransformPoint(planarTurn * clip.cameraTargetLocalPos);
@@ -222,12 +225,12 @@ public class CameraTimelineBehaviour : PlayableBehaviour
         ApplyShot(
             rig,
             nextPosition,
-            nextRotation,
-            clip.cameraMoveMode == CamMoveMode.Teleport ? 0f : clip.projectionTransitionDuration);
+            nextRotation);
     }
 
     public override void OnBehaviourPause(Playable playable, FrameData info)
     {
+        ReleaseClipMode();
         _rig = null;
         _inited = false;
         _warned = false;
@@ -235,6 +238,7 @@ public class CameraTimelineBehaviour : PlayableBehaviour
 
     public override void OnGraphStop(Playable playable)
     {
+        ReleaseClipMode();
         _rig = null;
         _inited = false;
         _warned = false;
@@ -257,43 +261,6 @@ public class CameraTimelineBehaviour : PlayableBehaviour
         return Mathf.Clamp01(travel / totalDisplacement);
     }
 
-    private float EvaluatePlanarYaw(
-        TimelineCamRig rig,
-        float currentTime,
-        float totalDuration)
-    {
-        if (clip == null ||
-            !clip.overrideProjection ||
-            clip.projection != TimelineCameraProjection.Orthographic)
-        {
-            return 0f;
-        }
-        if (clip.turnTiming == Camera2DTurnTiming.None)
-        {
-            return rig.PlanarYaw;
-        }
-
-        float duration = Mathf.Clamp(clip.turnDuration, 0.01f, totalDuration);
-        float localTime;
-        if (clip.turnTiming == Camera2DTurnTiming.AtClipStart)
-        {
-            localTime = currentTime;
-        }
-        else
-        {
-            localTime = currentTime - (totalDuration - duration);
-        }
-
-        float progress = Mathf.Clamp01(localTime / duration);
-        if (clip.turnCurve != null)
-        {
-            progress = Mathf.Clamp01(clip.turnCurve.Evaluate(progress));
-        }
-        float yaw = _planarYawAtClipStart + clip.turnAngleDegrees * progress;
-        rig.SetPlanarYaw(yaw);
-        return rig.PlanarYaw;
-    }
-
     private static Quaternion LookRotation(
         Vector3 position,
         Vector3 lookPoint,
@@ -308,8 +275,7 @@ public class CameraTimelineBehaviour : PlayableBehaviour
     private void ApplyShot(
         TimelineCamRig rig,
         Vector3 position,
-        Quaternion rotation,
-        float projectionTransitionDuration)
+        Quaternion rotation)
     {
         if (rig == null || clip == null)
         {
@@ -318,12 +284,7 @@ public class CameraTimelineBehaviour : PlayableBehaviour
 
         rig.SetShotTransform(
             position,
-            rotation,
-            clip.overrideProjection,
-            clip.projection,
-            clip.orthographicSize,
-            clip.fieldOfView,
-            projectionTransitionDuration);
+            rotation);
     }
 
     private Vector3 ApplyOrthographicConstraints(
@@ -336,9 +297,7 @@ public class CameraTimelineBehaviour : PlayableBehaviour
             return position;
         }
 
-        bool isOrthographic = clip.overrideProjection
-            ? clip.projection == TimelineCameraProjection.Orthographic
-            : rig.IsCurrentProjectionOrthographic;
+        bool isOrthographic = IsOrthographicMode(rig);
         if (!isOrthographic)
         {
             return position;
@@ -378,6 +337,108 @@ public class CameraTimelineBehaviour : PlayableBehaviour
         float minimum = Mathf.Min(range.x, range.y);
         float maximum = Mathf.Max(range.x, range.y);
         return Mathf.Clamp(value, minimum, maximum);
+    }
+
+    private void RequestClipMode(
+        TimelineCamRig rig,
+        float currentTime,
+        float totalDuration)
+    {
+        if (_modeRequestAttempted || _modeRequestHandle.IsValid)
+        {
+            return;
+        }
+
+        bool requestSide2D =
+            clip.modeRequest == TimelineCameraModeRequest.Side2D ||
+            (clip.modeRequest == TimelineCameraModeRequest.None &&
+             clip.turnTiming != Camera2DTurnTiming.None &&
+             rig.IsCurrentProjectionOrthographic);
+        bool requestPerspective =
+            clip.modeRequest == TimelineCameraModeRequest.Perspective3D;
+        if (!requestSide2D && !requestPerspective)
+        {
+            _modeRequestAttempted = true;
+            return;
+        }
+
+        bool hasTurn =
+            requestSide2D &&
+            clip.turnTiming != Camera2DTurnTiming.None;
+        if (hasTurn &&
+            clip.turnTiming == Camera2DTurnTiming.AtClipEnd)
+        {
+            float turnDuration = Mathf.Clamp(
+                clip.turnDuration,
+                0.01f,
+                totalDuration);
+            if (currentTime < totalDuration - turnDuration)
+            {
+                return;
+            }
+        }
+
+        CameraViewMode mode = requestSide2D
+            ? CameraViewMode.Side2D
+            : CameraViewMode.Perspective3D;
+        CameraTransition transition = hasTurn
+            ? new CameraTransition
+            {
+                duration = Mathf.Clamp(
+                    clip.turnDuration,
+                    0.01f,
+                    totalDuration),
+                easing = clip.turnCurve ??
+                         AnimationCurve.EaseInOut(0f, 0f, 1f, 1f),
+            }
+            : CameraTransition.Ease(
+                clip.projectionTransitionDuration);
+        bool overrideYaw =
+            requestSide2D &&
+            (clip.overrideSide2DYaw || hasTurn);
+        float targetYaw = clip.overrideSide2DYaw
+            ? clip.side2DYawDegrees
+            : rig.PlanarYaw + clip.turnAngleDegrees;
+
+        _modeRequestHandle = overrideYaw
+            ? rig.RequestViewMode(
+                mode,
+                targetYaw,
+                transition)
+            : rig.RequestViewMode(
+                mode,
+                transition);
+        _modeRequestAttempted = true;
+    }
+
+    private void ReleaseClipMode()
+    {
+        if (_modeRequestHandle.IsValid)
+        {
+            if (_rig != null)
+            {
+                _rig.ReleaseViewMode(_modeRequestHandle);
+            }
+            else
+            {
+                _modeRequestHandle.Release(true);
+            }
+        }
+        _modeRequestHandle = default;
+        _modeRequestAttempted = false;
+    }
+
+    private bool IsOrthographicMode(TimelineCamRig rig)
+    {
+        if (clip.modeRequest == TimelineCameraModeRequest.Side2D)
+        {
+            return true;
+        }
+        if (clip.modeRequest == TimelineCameraModeRequest.Perspective3D)
+        {
+            return false;
+        }
+        return rig != null && rig.IsCurrentProjectionOrthographic;
     }
 }
 

@@ -81,9 +81,11 @@ public static class TimelineHelpTextActors
             "· 整条轨道开始时统一申请控制权，轨道结束后交还 Project 玩法相机；\n" +
             "· 保存目标、距离、角度和观察高度，支持玩家在允许时手动接管；\n" +
             "· 提供从当前 Project 相机状态反算环绕参数的接口；\n" +
-            "· 维护 2D 平面朝向，并在交还玩法控制前同步给 Project CameraModeController。\n\n" +
+            "· 读取 Project CameraModeController 的 2D 平面朝向；\n" +
+            "· 2D/3D 只能向 Project CameraModeController 提交申请，不能自行覆盖投影。\n\n" +
             "【注意】\n" +
-            "Project 的 CameraControlManager 是唯一 Camera 写入者。Timeline 与玩法相机冲突时，" +
+            "Project 的 CameraControlManager 是唯一 Camera 写入者，" +
+            "CameraModeController 是唯一 2D/3D 与 2D Yaw 权威。Timeline 与玩法相机冲突时，" +
             "Timeline 必须让位，不要在本组件中加入直接写 transform.position、rotation、" +
             "orthographicSize、fieldOfView 或 projectionMatrix 的代码。\n\n" +
             "");

@@ -543,7 +543,10 @@ namespace Project.CameraModes.Editor
 
             if (Application.isPlaying)
             {
-                activeController.SwitchMode(mode);
+                CameraModeEditorRequests.RequestMode(
+                    activeController,
+                    mode,
+                    false);
             }
             else if (previewTransitionToggle.value)
             {
@@ -552,7 +555,10 @@ namespace Project.CameraModes.Editor
             }
             else
             {
-                activeController.SnapToMode(mode, false);
+                CameraModeEditorRequests.RequestMode(
+                    activeController,
+                    mode,
+                    true);
                 EditorUtility.SetDirty(activeController);
                 if (camera != null)
                 {

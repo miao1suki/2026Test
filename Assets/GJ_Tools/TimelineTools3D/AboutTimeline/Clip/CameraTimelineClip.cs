@@ -19,12 +19,14 @@ public enum ResetCamSubMode
     SmoothLerp
 }
 
-public enum TimelineCameraProjection
+public enum TimelineCameraModeRequest
 {
+    [InspectorName("不申请")]
+    None,
     [InspectorName("正交 2D")]
-    Orthographic,
+    Side2D,
     [InspectorName("透视 3D")]
-    Perspective
+    Perspective3D
 }
 
 public enum Camera2DTurnTiming
@@ -77,16 +79,14 @@ public class CameraTimelineClip : PlayableAsset
     [Tooltip("片段内持续看向角色(否则使用目标机位朝向)")]
     public bool lockLookAtPlayer = true;
 
-    [Header("2D / 3D 投影")]
-    [Tooltip("覆盖 Project 当前投影，可在 Timeline 中主动切换正交 2D 与透视 3D")]
-    public bool overrideProjection;
-    [Tooltip("覆盖后的投影方式")]
-    public TimelineCameraProjection projection = TimelineCameraProjection.Perspective;
-    [Tooltip("正交模式的可视高度")]
-    [Min(0.01f)] public float orthographicSize = 5f;
-    [Tooltip("透视模式的垂直视野角")]
-    [Range(1f, 179f)] public float fieldOfView = 50f;
-    [Tooltip("投影模式切换时交给 Project CameraControlManager 的过渡时间")]
+    [Header("Project 2D / 3D 模式申请")]
+    [Tooltip("片段开始时向 Project CameraModeController 申请切换模式")]
+    public TimelineCameraModeRequest modeRequest;
+    [Tooltip("申请 2D 时同时指定绝对 Yaw 角度")]
+    public bool overrideSide2DYaw;
+    [Tooltip("转向完成后的正交 2D 绝对 Yaw 角度")]
+    public float side2DYawDegrees;
+    [Tooltip("模式切换申请使用的过渡时间")]
     [Min(0f)] public float projectionTransitionDuration = 0.4f;
 
     [Header("2D 平面转向")]

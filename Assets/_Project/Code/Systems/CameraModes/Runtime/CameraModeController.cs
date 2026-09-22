@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -10,8 +11,20 @@ namespace Project.CameraModes
     public sealed class CameraModeController :
         MonoBehaviour,
         ICameraControlSource,
-        ICameraViewModeSwitcher
+        ICameraViewModeAuthority
     {
+        private sealed class ModeRequest
+        {
+            public int id;
+            public long order;
+            public int priority;
+            public CameraViewMode mode;
+            public ICameraViewModeRequester requester;
+            public bool overrideSide2DYaw;
+            public float side2DYawDegrees;
+            public CameraTransition transition;
+        }
+
         [Serializable]
         public sealed class Side2DSettings
         {
@@ -90,8 +103,18 @@ namespace Project.CameraModes
         [SerializeField] private CameraViewModeEvent onModeChanged = new CameraViewModeEvent();
 
         private CameraControlHandle controlHandle;
+        private readonly List<ModeRequest> modeRequests =
+            new List<ModeRequest>();
+        private int nextModeRequestId = 1;
+        private long nextModeRequestOrder = 1;
         private CameraViewMode currentMode;
         private CameraViewMode targetMode;
+        private bool yawTransitionActive;
+        private float yawTransitionFrom;
+        private float yawTransitionTo;
+        private float yawTransitionElapsed;
+        private float yawTransitionDuration;
+        private AnimationCurve yawTransitionCurve;
         private bool initialized;
         private bool suppressCompletionNotification;
 
@@ -108,10 +131,28 @@ namespace Project.CameraModes
         public float Perspective3DYaw => perspective3D.yawDegrees;
         public float Perspective3DPitch => perspective3D.pitch;
         public float Side2DYaw => side2D.yawDegrees;
-        public bool IsTransitioning => HasControl && cameraManager != null && cameraManager.IsTransitioning;
-        public float NormalizedTransitionTime => cameraManager != null
-            ? cameraManager.GetTransitionProgress(controlHandle)
-            : 0f;
+        public float ModeTransitionDuration => transition.duration;
+        public CameraTransition ModeTransition => BuildTransition();
+        public bool IsTransitioning =>
+            yawTransitionActive ||
+            (HasControl && cameraManager != null && cameraManager.IsTransitioning);
+        public float NormalizedTransitionTime
+        {
+            get
+            {
+                if (yawTransitionActive)
+                {
+                    return yawTransitionDuration <= 0f
+                        ? 1f
+                        : Mathf.Clamp01(
+                            yawTransitionElapsed /
+                            yawTransitionDuration);
+                }
+                return cameraManager != null
+                    ? cameraManager.GetTransitionProgress(controlHandle)
+                    : 0f;
+            }
+        }
 
         private void Reset()
         {
@@ -134,6 +175,16 @@ namespace Project.CameraModes
             UnsubscribeFromManager();
             controlHandle.Release(CameraTransition.Immediate);
             controlHandle = default;
+            modeRequests.Clear();
+        }
+
+        private void Update()
+        {
+            TickYawTransition(Time.deltaTime);
+            if (modeRequests.Count > 0)
+            {
+                ApplyBestModeRequest(BuildTransition());
+            }
         }
 
         private void OnValidate()
@@ -154,9 +205,9 @@ namespace Project.CameraModes
             transition.duration = Mathf.Max(0f, transition.duration);
         }
 
-        public void SetSide2DYaw(float yawDegrees, bool applyImmediate = false)
+        internal void SetSide2DYaw(float yawDegrees, bool applyImmediate = false)
         {
-            side2D.yawDegrees = Mathf.Repeat(yawDegrees + 180f, 360f) - 180f;
+            side2D.yawDegrees = NormalizeYaw(yawDegrees);
             if (applyImmediate && HasControl)
             {
                 cameraManager.Retarget(controlHandle, CameraTransition.Immediate);
@@ -231,39 +282,15 @@ namespace Project.CameraModes
             cameraManager.ClearFocusTarget(keepCurrentFocus);
         }
 
-        public void SwitchMode(CameraViewMode mode, bool immediate = false)
+        internal void SwitchMode(CameraViewMode mode, bool immediate = false)
         {
-            EnsureInitialized();
-            EnsureRegistered();
-            if (targetMode == mode)
-            {
-                if (immediate)
-                {
-                    cameraManager.Retarget(
-                        controlHandle,
-                        CameraTransition.Immediate);
-                    if (HasControl)
-                    {
-                        CompleteModeChange();
-                    }
-                }
-                return;
-            }
-
-            targetMode = mode;
             CameraTransition cameraTransition = immediate
                 ? CameraTransition.Immediate
                 : BuildTransition();
-            onTransitionStarted.Invoke(mode);
-            TransitionStarted?.Invoke(mode);
-            cameraManager.Retarget(controlHandle, cameraTransition);
-            if (immediate && HasControl)
-            {
-                CompleteModeChange();
-            }
+            ApplyMode(mode, cameraTransition);
         }
 
-        public void ToggleMode(bool immediate = false)
+        internal void ToggleMode(bool immediate = false)
         {
             CameraViewMode nextMode = targetMode == CameraViewMode.Side2D
                 ? CameraViewMode.Perspective3D
@@ -271,20 +298,163 @@ namespace Project.CameraModes
             SwitchMode(nextMode, immediate);
         }
 
-        public void SwitchTo2D(bool immediate = false)
+        internal void SwitchTo2D(bool immediate = false)
         {
             SwitchMode(CameraViewMode.Side2D, immediate);
         }
 
-        public void SwitchTo3D(bool immediate = false)
+        internal void SwitchTo3D(bool immediate = false)
         {
             SwitchMode(CameraViewMode.Perspective3D, immediate);
         }
 
-        public void SnapToMode(CameraViewMode mode, bool notifyListeners = true)
+        public CameraViewModeRequestHandle RequestMode(
+            ICameraViewModeRequester requester,
+            CameraViewMode mode,
+            bool immediate = false)
+        {
+            return RequestMode(
+                requester,
+                mode,
+                false,
+                0f,
+                immediate
+                    ? CameraTransition.Immediate
+                    : BuildTransition());
+        }
+
+        public CameraViewModeRequestHandle RequestMode(
+            ICameraViewModeRequester requester,
+            CameraViewMode mode,
+            float side2DYawDegrees,
+            bool immediate = false)
+        {
+            return RequestMode(
+                requester,
+                mode,
+                true,
+                side2DYawDegrees,
+                immediate
+                    ? CameraTransition.Immediate
+                    : BuildTransition());
+        }
+
+        public CameraViewModeRequestHandle RequestMode(
+            ICameraViewModeRequester requester,
+            CameraViewMode mode,
+            CameraTransition transition)
+        {
+            return RequestMode(
+                requester,
+                mode,
+                false,
+                0f,
+                transition);
+        }
+
+        public CameraViewModeRequestHandle RequestMode(
+            ICameraViewModeRequester requester,
+            CameraViewMode mode,
+            float side2DYawDegrees,
+            CameraTransition transition)
+        {
+            return RequestMode(
+                requester,
+                mode,
+                true,
+                side2DYawDegrees,
+                transition);
+        }
+
+        private CameraViewModeRequestHandle RequestMode(
+            ICameraViewModeRequester requester,
+            CameraViewMode mode,
+            bool overrideSide2DYaw,
+            float side2DYawDegrees,
+            CameraTransition transition)
+        {
+            if (requester == null)
+            {
+                throw new ArgumentNullException(nameof(requester));
+            }
+
+            EnsureInitialized();
+            ModeRequest request = new ModeRequest
+            {
+                id = nextModeRequestId++,
+                order = nextModeRequestOrder++,
+                priority = requester.CameraModeRequestPriority,
+                mode = mode,
+                requester = requester,
+                overrideSide2DYaw = overrideSide2DYaw,
+                side2DYawDegrees = side2DYawDegrees,
+                transition = transition,
+            };
+            modeRequests.Add(request);
+            ApplyBestModeRequest(BuildTransition());
+            return new CameraViewModeRequestHandle(this, request.id);
+        }
+
+        internal bool IsModeRequestValid(
+            CameraViewModeRequestHandle handle)
+        {
+            return handle.Controller == this &&
+                   handle.Id != 0 &&
+                   modeRequests.Exists(item => item.id == handle.Id);
+        }
+
+        internal void ReleaseModeRequest(
+            CameraViewModeRequestHandle handle,
+            bool immediate)
+        {
+            if (handle.Controller != this)
+            {
+                return;
+            }
+
+            ModeRequest request = modeRequests.Find(
+                item => item.id == handle.Id);
+            if (request == null)
+            {
+                return;
+            }
+
+            modeRequests.Remove(request);
+            ApplyBestModeRequest(
+                immediate
+                    ? CameraTransition.Immediate
+                    : BuildTransition());
+        }
+
+        public bool TryGetProjectionState(out CameraState state)
+        {
+            EnsureInitialized();
+            if (targetMode == CameraViewMode.Side2D)
+            {
+                state = new CameraState
+                {
+                    projection = CameraProjectionMode.Orthographic,
+                    orthographicSize = side2D.orthographicSize,
+                    fieldOfView = perspective3D.fieldOfView,
+                };
+                return true;
+            }
+
+            state = new CameraState
+            {
+                projection = CameraProjectionMode.Perspective,
+                orthographicSize = side2D.orthographicSize,
+                fieldOfView = perspective3D.fieldOfView,
+            };
+            return true;
+        }
+
+        internal void SnapToMode(CameraViewMode mode, bool notifyListeners = true)
         {
             EnsureInitialized();
             EnsureRegistered();
+            yawTransitionActive = false;
+            yawTransitionCurve = null;
             bool changed = currentMode != mode || targetMode != mode || IsTransitioning;
             targetMode = mode;
             suppressCompletionNotification = !notifyListeners;
@@ -296,7 +466,7 @@ namespace Project.CameraModes
             {
                 suppressCompletionNotification = false;
             }
-            if (HasControl && currentMode != mode)
+            if (currentMode != mode)
             {
                 currentMode = mode;
                 if (changed && notifyListeners)
@@ -305,6 +475,7 @@ namespace Project.CameraModes
                     ModeChanged?.Invoke(mode);
                 }
             }
+            cameraManager.ApplyViewModeAuthorityImmediately();
         }
 
         public void SnapFollowPosition()
@@ -356,9 +527,155 @@ namespace Project.CameraModes
             return true;
         }
 
+        private void BeginYawTransition(
+            float targetYawDegrees,
+            CameraTransition cameraTransition)
+        {
+            float normalizedTarget = NormalizeYaw(targetYawDegrees);
+            if (cameraTransition.duration <= 0f)
+            {
+                yawTransitionActive = false;
+                side2D.yawDegrees = normalizedTarget;
+                cameraManager.ApplyViewModeAuthorityImmediately();
+                return;
+            }
+
+            yawTransitionFrom = side2D.yawDegrees;
+            yawTransitionTo = normalizedTarget;
+            yawTransitionElapsed = 0f;
+            yawTransitionDuration = cameraTransition.duration;
+            yawTransitionCurve = cameraTransition.easing;
+            yawTransitionActive = true;
+        }
+
+        private void TickYawTransition(float deltaTime)
+        {
+            if (!yawTransitionActive)
+            {
+                return;
+            }
+
+            yawTransitionElapsed += Mathf.Max(0f, deltaTime);
+            float normalizedTime = yawTransitionDuration <= 0f
+                ? 1f
+                : Mathf.Clamp01(
+                    yawTransitionElapsed /
+                    yawTransitionDuration);
+            float easedTime = yawTransitionCurve == null
+                ? normalizedTime
+                : Mathf.Clamp01(
+                    yawTransitionCurve.Evaluate(normalizedTime));
+            side2D.yawDegrees = Mathf.LerpAngle(
+                yawTransitionFrom,
+                yawTransitionTo,
+                easedTime);
+
+            if (normalizedTime >= 1f)
+            {
+                side2D.yawDegrees =
+                    NormalizeYaw(yawTransitionTo);
+                yawTransitionActive = false;
+                yawTransitionCurve = null;
+            }
+        }
+
+        private void ApplyMode(
+            CameraViewMode mode,
+            CameraTransition cameraTransition)
+        {
+            EnsureInitialized();
+            EnsureRegistered();
+            if (targetMode == mode)
+            {
+                if (cameraTransition.duration <= 0f)
+                {
+                    cameraManager.Retarget(
+                        controlHandle,
+                        CameraTransition.Immediate);
+                    if (HasControl)
+                    {
+                        CompleteModeChange();
+                    }
+                }
+                return;
+            }
+
+            targetMode = mode;
+            onTransitionStarted.Invoke(mode);
+            TransitionStarted?.Invoke(mode);
+            cameraManager.Retarget(controlHandle, cameraTransition);
+            if (cameraTransition.duration <= 0f)
+            {
+                if (HasControl)
+                {
+                    CompleteModeChange();
+                }
+                else
+                {
+                    cameraManager.ApplyViewModeAuthorityImmediately();
+                }
+            }
+        }
+
+        private void ApplyBestModeRequest(
+            CameraTransition cameraTransition)
+        {
+            ModeRequest best = null;
+            foreach (ModeRequest request in modeRequests)
+            {
+                if (best == null ||
+                    request.priority > best.priority ||
+                    (request.priority == best.priority &&
+                     request.order > best.order))
+                {
+                    best = request;
+                }
+            }
+
+            bool side2DYawChanged = false;
+            float targetSide2DYaw = 0f;
+            if (best != null &&
+                best.mode == CameraViewMode.Side2D &&
+                best.overrideSide2DYaw)
+            {
+                targetSide2DYaw = NormalizeYaw(
+                    best.side2DYawDegrees);
+                float comparisonYaw = yawTransitionActive
+                    ? yawTransitionTo
+                    : side2D.yawDegrees;
+                side2DYawChanged = !Mathf.Approximately(
+                    comparisonYaw,
+                    targetSide2DYaw);
+            }
+
+            CameraViewMode nextMode =
+                best != null ? best.mode : initialMode;
+            CameraTransition effectiveTransition =
+                best != null ? best.transition : cameraTransition;
+            if (side2DYawChanged)
+            {
+                if (targetMode == nextMode &&
+                    nextMode == CameraViewMode.Side2D)
+                {
+                    BeginYawTransition(
+                        targetSide2DYaw,
+                        effectiveTransition);
+                }
+                else
+                {
+                    side2D.yawDegrees = targetSide2DYaw;
+                }
+            }
+
+            ApplyMode(
+                nextMode,
+                effectiveTransition);
+        }
+
         internal void Tick(float deltaTime)
         {
             EnsureInitialized();
+            TickYawTransition(deltaTime);
             cameraManager.Tick(deltaTime);
         }
 
@@ -382,6 +699,7 @@ namespace Project.CameraModes
                 cameraManager = gameObject.AddComponent<CameraControlManager>();
             }
 
+            cameraManager.SetViewModeAuthority(this);
             if (!initialized)
             {
                 currentMode = initialMode;
@@ -449,6 +767,11 @@ namespace Project.CameraModes
                 duration = transition.duration,
                 easing = transition.easing,
             };
+        }
+
+        private static float NormalizeYaw(float yawDegrees)
+        {
+            return Mathf.Repeat(yawDegrees + 180f, 360f) - 180f;
         }
     }
 }

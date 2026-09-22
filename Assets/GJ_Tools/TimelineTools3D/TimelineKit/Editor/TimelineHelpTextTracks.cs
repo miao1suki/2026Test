@@ -95,14 +95,16 @@ public static class TimelineHelpTextTracks
         TimelineHelpText.Register(map, typeof(CameraTimelineTrack), "CameraTimelineTrack · 相机运镜轨道",
             "【这是什么】\n" +
             "自定义 Timeline 轨道：在时间轴上编排相机运镜和 2D/3D 投影切换。" +
-            "整条轨道通过 TimelineCamRig 向 Project CameraControlManager 统一申请 Cutscene 控制权。\n\n" +
+            "整条轨道通过 TimelineCamRig 向 Project CameraControlManager 统一申请 Cutscene 控制权，" +
+            "并通过 CameraModeController 申请 2D/3D 模式。\n\n" +
             "【怎么用】\n" +
             "1) 相机上必须有 Project 的 CameraControlManager 和 TimelineCamRig；\n" +
             "2) 添加 CameraTimelineTrack 并绑定这台相机；\n" +
             "3) 创建片段，在 Inspector 里选运镜模式、设置目标与时长。\n\n" +
-            "【2D / 3D 投影】\n" +
-            "片段可开启「覆盖 Project 投影」，主动切换正交 2D 或透视 3D。" +
-            "投影过渡仍由 Project CameraControlManager 执行，Timeline 不直接写 Camera。\n\n" +
+            "【2D / 3D 模式申请】\n" +
+            "片段不再直接覆盖投影，只能向 Project CameraModeController 申请正交 2D 或透视 3D。" +
+            "CameraModeController 是唯一模式权威，CameraControlManager 在写入前强制使用权威投影。" +
+            "申请 2D 时还可指定绝对 Yaw，表示转向完成后的平面朝向。\n\n" +
             "【2D 正交轴约束】\n" +
             "正交片段可只允许相机沿 X/Y/Z 中指定轴移动，并可限制每个轴的世界坐标范围。" +
             "例如只保留 X，可得到只能左右推进/跟随的横版相机。\n\n" +
@@ -127,14 +129,14 @@ public static class TimelineHelpTextTracks
             "· 瞬移运镜：立刻切到目标机位，常用于硬切镜头；\n" +
             "· 归位：把相机恢复到轨道开始前的稳定机位。\n\n" +
             "【2D / 3D】\n" +
-            "开启「覆盖 Project 投影」后，可把本片段切换为正交 2D 或透视 3D，" +
-            "并分别设置 orthographicSize 与 fieldOfView。投影切换通过 Project CameraControlManager 过渡。\n\n" +
+            "申请模式可选择不申请、申请正交 2D 或申请透视 3D。" +
+            "片段只提交申请，是否切换、正交尺寸、FOV 和 2D Yaw 最终由 Project CameraModeController 决定。\n\n" +
             "【2D 约束】\n" +
             "正交投影时可启用轴约束：只勾允许移动的 X/Y/Z 轴，并可给每个轴设置范围，" +
             "用于横版左右运动、固定纵深或限制房间边界。\n\n" +
             "【归位子模式】\n" +
             "归位也分「瞬移」和「平滑」两种过渡方式。" +
-            "归位模式只应用归位方式、平滑速度、看向角色和投影覆盖，其他运动与轴约束参数无效。\n\n" +
+            "归位模式只应用归位方式、平滑速度、看向角色和模式申请，其他运动与轴约束参数无效。\n\n" +
             "【运动与环绕】\n" +
             "可开启环绕模式，并分别用半径曲线、高度曲线和运动曲线控制环绕半径、圆心高度与角度进度。" +
             "连续运镜可开启“以上一帧位置为起点”，让当前片段从开始瞬间的相机状态继续。\n\n" +
@@ -144,7 +146,7 @@ public static class TimelineHelpTextTracks
             "普通运镜拖拽轨迹终点可改目标机位；环绕运镜拖拽终点可同步修改半径、总角度和高度。" +
             "关闭看向角色后，终点还可直接拖拽旋转。\n\n" +
             "【提示】\n" +
-            "片段上还有变速、投影、2D 平面转向和轴约束相关参数，" +
+            "片段上还有变速、模式申请、2D 平面转向和轴约束相关参数，" +
             "选中片段后 Inspector 里会全部列出，每个字段都有中文 Tooltip 说明。\n\n" +
             "轨道级的 allowManualCamera 与 restoreOriginOnEnd 在 CameraTimelineTrack 上设置。\n\n" +
             "");

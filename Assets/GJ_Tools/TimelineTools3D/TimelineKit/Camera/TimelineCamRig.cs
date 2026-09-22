@@ -4,12 +4,19 @@ using UnityEngine;
 [AddComponentMenu("TimelineKit/TimelineCamRig")]
 [DisallowMultipleComponent]
 [RequireComponent(typeof(CameraControlManager))]
-public class TimelineCamRig : MonoBehaviour, ICameraControlSource
+public class TimelineCamRig :
+    MonoBehaviour,
+    ICameraControlSource,
+    ICameraViewModeRequester
 {
     [Header("Project Camera")]
     [SerializeField]
     [Tooltip("场景中的统一相机管理器。Timeline 只能通过它修改 Camera。")]
     private CameraControlManager cameraManager;
+
+    [SerializeField]
+    [Tooltip("Project 中唯一的 2D/3D 模式权威。")]
+    private CameraModeController cameraModeController;
 
     [SerializeField]
     [Tooltip("Timeline 运镜使用的控制优先级，默认与项目演出优先级一致。")]
@@ -55,7 +62,6 @@ public class TimelineCamRig : MonoBehaviour, ICameraControlSource
     private bool _hasNormalState;
     private bool _hasShotState;
     private int _activeTracks;
-    private float _planarYaw;
 
     public string CameraControlName => "Timeline Camera";
 
@@ -90,7 +96,10 @@ public class TimelineCamRig : MonoBehaviour, ICameraControlSource
 
     public bool SmoothReturnOnRelease { get; private set; } = true;
 
-    public float PlanarYaw => _planarYaw;
+    public float PlanarYaw =>
+        cameraModeController != null
+            ? cameraModeController.Side2DYaw
+            : 0f;
 
     public bool CanManualDrive =>
         isPlayingAnim &&
@@ -108,7 +117,13 @@ public class TimelineCamRig : MonoBehaviour, ICameraControlSource
     public Quaternion CurrentRotation => ReadCurrentState().rotation;
 
     public bool IsCurrentProjectionOrthographic =>
-        ReadCurrentState().projection == CameraProjectionMode.Orthographic;
+        cameraModeController != null
+            ? cameraModeController.TargetMode == CameraViewMode.Side2D
+            : ReadCurrentState().projection == CameraProjectionMode.Orthographic;
+
+    public string CameraModeRequesterName => "Timeline Camera";
+
+    public int CameraModeRequestPriority => controlPriority;
 
     private void Reset()
     {
@@ -118,6 +133,7 @@ public class TimelineCamRig : MonoBehaviour, ICameraControlSource
     private void Awake()
     {
         ResolveManager();
+        ResolveModeController();
     }
 
     private void OnDisable()
@@ -221,54 +237,115 @@ public class TimelineCamRig : MonoBehaviour, ICameraControlSource
         _hasNormalState = false;
     }
 
-    public void SetPlanarYaw(float yaw)
-    {
-        _planarYaw = Mathf.Repeat(yaw + 180f, 360f) - 180f;
-    }
-
     public void SetShotTransform(
         Vector3 position,
-        Quaternion rotation,
-        bool overrideProjection,
-        TimelineCameraProjection projection,
-        float orthographicSize,
-        float fieldOfView,
-        float transitionDuration)
+        Quaternion rotation)
     {
         if (!_hasShotState)
         {
             _shotState = ReadCurrentState();
         }
 
-        CameraProjectionMode nextProjection = overrideProjection
-            ? MapProjection(projection)
-            : _shotState.projection;
-        float nextOrthographicSize = overrideProjection
-            ? Mathf.Max(0.01f, orthographicSize)
-            : _shotState.orthographicSize;
-        float nextFieldOfView = overrideProjection
-            ? Mathf.Clamp(fieldOfView, 1f, 179f)
-            : _shotState.fieldOfView;
-        bool projectionChanged = nextProjection != _shotState.projection;
-        bool lensChanged =
-            !Mathf.Approximately(nextOrthographicSize, _shotState.orthographicSize) ||
-            !Mathf.Approximately(nextFieldOfView, _shotState.fieldOfView);
-
         _shotState.position = position;
         _shotState.rotation = rotation;
-        _shotState.projection = nextProjection;
-        if (overrideProjection)
-        {
-            _shotState.orthographicSize = nextOrthographicSize;
-            _shotState.fieldOfView = nextFieldOfView;
-        }
         _hasShotState = true;
+    }
 
-        if ((projectionChanged || lensChanged) && _controlHandle.IsValid)
+    public CameraViewModeRequestHandle RequestViewMode(
+        CameraViewMode mode,
+        float transitionDuration)
+    {
+        CameraTransition transition = transitionDuration <= 0f
+            ? CameraTransition.Immediate
+            : CameraTransition.Ease(transitionDuration);
+        return RequestViewMode(
+            mode,
+            false,
+            0f,
+            transition);
+    }
+
+    public CameraViewModeRequestHandle RequestViewMode(
+        CameraViewMode mode,
+        float side2DYawDegrees,
+        float transitionDuration)
+    {
+        CameraTransition transition = transitionDuration <= 0f
+            ? CameraTransition.Immediate
+            : CameraTransition.Ease(transitionDuration);
+        return RequestViewMode(
+            mode,
+            true,
+            side2DYawDegrees,
+            transition);
+    }
+
+    public CameraViewModeRequestHandle RequestViewMode(
+        CameraViewMode mode,
+        CameraTransition transition)
+    {
+        return RequestViewMode(
+            mode,
+            false,
+            0f,
+            transition);
+    }
+
+    public CameraViewModeRequestHandle RequestViewMode(
+        CameraViewMode mode,
+        float side2DYawDegrees,
+        CameraTransition transition)
+    {
+        return RequestViewMode(
+            mode,
+            true,
+            side2DYawDegrees,
+            transition);
+    }
+
+    private CameraViewModeRequestHandle RequestViewMode(
+        CameraViewMode mode,
+        bool overrideSide2DYaw,
+        float side2DYawDegrees,
+        CameraTransition transition)
+    {
+        ResolveModeController();
+        if (cameraModeController == null)
         {
-            CameraTransition transition = transitionDuration > 0f
-                ? CameraTransition.Ease(transitionDuration)
-                : CameraTransition.Immediate;
+            return default;
+        }
+
+        CameraViewModeRequestHandle handle =
+            overrideSide2DYaw
+                ? cameraModeController.RequestMode(
+                    this,
+                    mode,
+                    side2DYawDegrees,
+                    transition)
+                : cameraModeController.RequestMode(
+                    this,
+                    mode,
+                    transition);
+        if (_controlHandle.IsValid)
+        {
+            Manager?.Retarget(_controlHandle, transition);
+        }
+        return handle;
+    }
+
+    public void ReleaseViewMode(
+        CameraViewModeRequestHandle handle,
+        bool immediate = false)
+    {
+        if (handle.IsValid)
+        {
+            handle.Release(immediate);
+        }
+        if (_controlHandle.IsValid)
+        {
+            CameraTransition transition = immediate
+                ? CameraTransition.Immediate
+                : CameraTransition.Ease(returnTransitionDuration);
             Manager?.Retarget(_controlHandle, transition);
         }
     }
@@ -312,6 +389,7 @@ public class TimelineCamRig : MonoBehaviour, ICameraControlSource
         if (_hasShotState)
         {
             state = _shotState;
+            ApplyViewModeProjection(ref state);
             return true;
         }
 
@@ -410,11 +488,27 @@ public class TimelineCamRig : MonoBehaviour, ICameraControlSource
         }
     }
 
-    private static CameraProjectionMode MapProjection(TimelineCameraProjection projection)
+    private void ResolveModeController()
     {
-        return projection == TimelineCameraProjection.Orthographic
-            ? CameraProjectionMode.Orthographic
-            : CameraProjectionMode.Perspective;
+        if (cameraModeController == null)
+        {
+            cameraModeController = GetComponent<CameraModeController>();
+        }
+    }
+
+    private void ApplyViewModeProjection(ref CameraState state)
+    {
+        ResolveModeController();
+        if (cameraModeController == null ||
+            !cameraModeController.TryGetProjectionState(
+                out CameraState projectionState))
+        {
+            return;
+        }
+
+        state.projection = projectionState.projection;
+        state.orthographicSize = projectionState.orthographicSize;
+        state.fieldOfView = projectionState.fieldOfView;
     }
 
     private static Quaternion LookRotation(

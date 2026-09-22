@@ -140,7 +140,11 @@ public static class CameraTimelineSceneDrawer
             }
         }
 
-        DrawCameraCone(camClip, targetWorldPos, targetWorldRot);
+        DrawCameraCone(
+            camClip,
+            rig,
+            targetWorldPos,
+            targetWorldRot);
 
         string tip = camClip.useSurroundMode
             ? "环绕轨迹终点：拖拽可改半径、角度与高度"
@@ -377,12 +381,18 @@ public static class CameraTimelineSceneDrawer
         float clipDuration)
     {
         float yaw = rig.PlanarYaw;
-        if (!clip.overrideProjection ||
-            clip.projection != TimelineCameraProjection.Orthographic ||
-            clip.turnTiming == Camera2DTurnTiming.None ||
+        if (!IsOrthographicForPreview(clip, rig) ||
             clipDuration <= 0.0001f)
         {
             return yaw;
+        }
+
+        if (clip.turnTiming == Camera2DTurnTiming.None)
+        {
+            return clip.modeRequest == TimelineCameraModeRequest.Side2D &&
+                   clip.overrideSide2DYaw
+                ? clip.side2DYawDegrees
+                : yaw;
         }
 
         float turnDuration = Mathf.Clamp(
@@ -399,7 +409,12 @@ public static class CameraTimelineSceneDrawer
         {
             progress = Mathf.Clamp01(clip.turnCurve.Evaluate(progress));
         }
-        return yaw + clip.turnAngleDegrees * progress;
+        float targetYaw =
+            clip.modeRequest == TimelineCameraModeRequest.Side2D &&
+            clip.overrideSide2DYaw
+                ? clip.side2DYawDegrees
+                : yaw + clip.turnAngleDegrees;
+        return Mathf.LerpAngle(yaw, targetYaw, progress);
     }
 
     private static float EvaluateProgress(
@@ -487,18 +502,18 @@ public static class CameraTimelineSceneDrawer
 
     private static void DrawCameraCone(
         CameraTimelineClip camClip,
+        TimelineCamRig rig,
         Vector3 targetWorldPos,
         Quaternion targetWorldRot)
     {
         float coneLength = 3f;
         bool useOrthographic =
-            camClip.overrideProjection &&
-            camClip.projection == TimelineCameraProjection.Orthographic;
-        float coneHalfAngle =
-            camClip.overrideProjection &&
-            camClip.projection == TimelineCameraProjection.Perspective
-                ? camClip.fieldOfView * 0.5f
-                : 30f;
+            IsOrthographicForPreview(camClip, rig);
+        float coneHalfAngle = useOrthographic
+            ? 30f
+            : rig != null && rig.Manager != null
+                ? rig.Manager.CurrentState.fieldOfView * 0.5f
+                : 25f;
 
         Handles.color = TimelineSceneStyle.CamCone;
         using (new Handles.DrawingScope(Matrix4x4.TRS(
@@ -512,7 +527,10 @@ public static class CameraTimelineSceneDrawer
                 float aspect = SceneView.lastActiveSceneView != null
                     ? SceneView.lastActiveSceneView.camera.aspect
                     : 16f / 9f;
-                float halfHeight = camClip.orthographicSize;
+                float halfHeight = rig != null &&
+                                   rig.Manager != null
+                    ? rig.Manager.CurrentState.orthographicSize
+                    : 5f;
                 float halfWidth = halfHeight * aspect;
                 Vector3[] frame =
                 {
@@ -574,5 +592,20 @@ public static class CameraTimelineSceneDrawer
                     TimelineSceneStyle.ThinLineWidth);
             }
         }
+    }
+
+    private static bool IsOrthographicForPreview(
+        CameraTimelineClip clip,
+        TimelineCamRig rig)
+    {
+        if (clip.modeRequest == TimelineCameraModeRequest.Side2D)
+        {
+            return true;
+        }
+        if (clip.modeRequest == TimelineCameraModeRequest.Perspective3D)
+        {
+            return false;
+        }
+        return rig != null && rig.IsCurrentProjectionOrthographic;
     }
 }

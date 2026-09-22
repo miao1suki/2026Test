@@ -5,6 +5,18 @@ namespace Project.CameraModes.Tests
 {
     public sealed class CameraModeControllerTests
     {
+        private sealed class TestRequester : ICameraViewModeRequester
+        {
+            public TestRequester(string name, int priority)
+            {
+                CameraModeRequesterName = name;
+                CameraModeRequestPriority = priority;
+            }
+
+            public string CameraModeRequesterName { get; }
+            public int CameraModeRequestPriority { get; }
+        }
+
         private GameObject cameraObject;
         private GameObject targetObject;
         private Camera cameraComponent;
@@ -132,6 +144,83 @@ namespace Project.CameraModes.Tests
             Assert.That(controller.IsTransitioning, Is.False);
             Assert.That(cameraComponent.orthographic, Is.False);
             Assert.That(controller.CurrentMode, Is.EqualTo(CameraViewMode.Perspective3D));
+        }
+
+        [Test]
+        public void ModeRequests_RespectPriorityAndRelease()
+        {
+            TestRequester gameplay = new TestRequester(
+                "Gameplay",
+                CameraControlPriorities.Gameplay);
+            TestRequester cutscene = new TestRequester(
+                "Cutscene",
+                CameraControlPriorities.Cutscene);
+
+            CameraViewModeRequestHandle gameplayHandle =
+                controller.RequestMode(
+                    gameplay,
+                    CameraViewMode.Perspective3D,
+                    true);
+            CameraViewModeRequestHandle cutsceneHandle =
+                controller.RequestMode(
+                    cutscene,
+                    CameraViewMode.Side2D,
+                    true);
+
+            Assert.That(controller.TargetMode, Is.EqualTo(CameraViewMode.Side2D));
+
+            cutsceneHandle.Release(true);
+            Assert.That(
+                controller.TargetMode,
+                Is.EqualTo(CameraViewMode.Perspective3D));
+
+            gameplayHandle.Release(true);
+            Assert.That(controller.TargetMode, Is.EqualTo(CameraViewMode.Side2D));
+        }
+
+        [Test]
+        public void Side2DModeRequest_AppliesRequestedYaw()
+        {
+            TestRequester requester = new TestRequester(
+                "Directional Request",
+                CameraControlPriorities.Gameplay);
+            CameraViewModeRequestHandle handle =
+                controller.RequestMode(
+                    requester,
+                    CameraViewMode.Side2D,
+                    90f,
+                    true);
+
+            Assert.That(controller.TargetMode, Is.EqualTo(CameraViewMode.Side2D));
+            Assert.That(controller.Side2DYaw, Is.EqualTo(90f).Within(0.001f));
+
+            handle.Release(true);
+        }
+
+        [Test]
+        public void Side2DYawRequest_TransitionsOverTime()
+        {
+            TestRequester requester = new TestRequester(
+                "Smooth Yaw",
+                CameraControlPriorities.Gameplay);
+            CameraViewModeRequestHandle handle =
+                controller.RequestMode(
+                    requester,
+                    CameraViewMode.Side2D,
+                    90f,
+                    false);
+
+            Assert.That(controller.IsTransitioning, Is.True);
+
+            controller.Tick(0.4f);
+            Assert.That(controller.Side2DYaw, Is.GreaterThan(0f));
+            Assert.That(controller.Side2DYaw, Is.LessThan(90f));
+
+            controller.Tick(1f);
+            Assert.That(controller.IsTransitioning, Is.False);
+            Assert.That(controller.Side2DYaw, Is.EqualTo(90f).Within(0.001f));
+
+            handle.Release(true);
         }
 
         private static void AssertMatricesEqual(Matrix4x4 expected, Matrix4x4 actual, float tolerance)

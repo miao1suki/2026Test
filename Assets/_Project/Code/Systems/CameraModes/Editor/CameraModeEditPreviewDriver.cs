@@ -17,6 +17,10 @@ namespace Project.CameraModes.Editor
         {
             AssemblyReloadEvents.beforeAssemblyReload -= SettleAll;
             AssemblyReloadEvents.beforeAssemblyReload += SettleAll;
+            AssemblyReloadEvents.beforeAssemblyReload -=
+                ReleaseEditorRequests;
+            AssemblyReloadEvents.beforeAssemblyReload +=
+                ReleaseEditorRequests;
             EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
         }
@@ -30,7 +34,21 @@ namespace Project.CameraModes.Editor
                 return;
             }
 
-            controller.SwitchMode(mode);
+            CameraModeEditorRequests.RequestMode(
+                controller,
+                mode,
+                false);
+            TrackTransition(controller);
+        }
+
+        internal static void TrackTransition(
+            CameraModeController controller)
+        {
+            if (controller == null)
+            {
+                return;
+            }
+
             if (!controller.IsTransitioning)
             {
                 MarkDirty(controller);
@@ -92,11 +110,21 @@ namespace Project.CameraModes.Editor
             EditorApplication.update -= Update;
         }
 
+        private static void ReleaseEditorRequests()
+        {
+            CameraModeEditorRequests.ReleaseAll();
+        }
+
         private static void OnPlayModeStateChanged(PlayModeStateChange state)
         {
             if (state == PlayModeStateChange.ExitingEditMode)
             {
                 SettleAll();
+                CameraModeEditorRequests.ReleaseAll();
+            }
+            else if (state == PlayModeStateChange.ExitingPlayMode)
+            {
+                CameraModeEditorRequests.ReleaseAll();
             }
         }
 

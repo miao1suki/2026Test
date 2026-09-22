@@ -46,6 +46,7 @@ namespace Project.CameraModes
         private bool initialized;
         private bool isTransitioning;
         private bool focusPointWasSetExternally;
+        private ICameraViewModeAuthority viewModeAuthority;
 
         public event Action<string, string> ActiveControlChanged;
         public event Action<CameraControlHandle> TransitionCompleted;
@@ -98,6 +99,26 @@ namespace Project.CameraModes
             outputCamera = cameraToControl;
             initialized = false;
             EnsureInitialized();
+        }
+
+        public void SetViewModeAuthority(
+            ICameraViewModeAuthority authority)
+        {
+            viewModeAuthority = authority;
+        }
+
+        public void ApplyViewModeAuthorityImmediately()
+        {
+            EnsureInitialized();
+            if (outputCamera == null)
+            {
+                return;
+            }
+
+            CameraState state = currentState;
+            ApplyViewModeProjection(ref state);
+            currentState = state;
+            ApplyStableState(currentState);
         }
 
         public void SetFocusPoint(Vector3 worldPoint, bool snap = false)
@@ -279,8 +300,14 @@ namespace Project.CameraModes
         internal void Tick(float deltaTime)
         {
             EnsureInitialized();
-            if (outputCamera == null || activeRequest == null)
+            if (outputCamera == null)
             {
+                return;
+            }
+
+            if (activeRequest == null)
+            {
+                ApplyViewModeAuthorityImmediately();
                 return;
             }
 
@@ -292,6 +319,7 @@ namespace Project.CameraModes
                 return;
             }
 
+            ApplyViewModeProjection(ref targetState);
             SanitizeState(ref targetState);
             if (!isTransitioning)
             {
@@ -339,7 +367,22 @@ namespace Project.CameraModes
                 currentState = CameraState.FromCamera(outputCamera);
             }
 
+            ResolveViewModeAuthority();
             initialized = true;
+        }
+
+        private void ResolveViewModeAuthority()
+        {
+            viewModeAuthority = null;
+            MonoBehaviour[] behaviours = GetComponents<MonoBehaviour>();
+            foreach (MonoBehaviour behaviour in behaviours)
+            {
+                if (behaviour is ICameraViewModeAuthority authority)
+                {
+                    viewModeAuthority = authority;
+                    break;
+                }
+            }
         }
 
         private Vector3 ResolveFocusPoint()
@@ -449,6 +492,7 @@ namespace Project.CameraModes
                 return;
             }
 
+            ApplyViewModeProjection(ref state);
             SanitizeState(ref state);
             currentState = state;
             transitionStartState = state;
@@ -468,6 +512,20 @@ namespace Project.CameraModes
             {
                 state.rotation = Quaternion.identity;
             }
+        }
+
+        private void ApplyViewModeProjection(ref CameraState state)
+        {
+            if (viewModeAuthority == null ||
+                !viewModeAuthority.TryGetProjectionState(
+                    out CameraState projectionState))
+            {
+                return;
+            }
+
+            state.projection = projectionState.projection;
+            state.orthographicSize = projectionState.orthographicSize;
+            state.fieldOfView = projectionState.fieldOfView;
         }
 
         private static CameraState LerpState(CameraState from, CameraState to, float amount)

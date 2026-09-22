@@ -18,10 +18,9 @@ public class CameraTimelineClipInspector : Editor
     private SerializedProperty cameraTargetLocalPos;
     private SerializedProperty cameraTargetEuler;
     private SerializedProperty lockLookAtPlayer;
-    private SerializedProperty overrideProjection;
-    private SerializedProperty projection;
-    private SerializedProperty orthographicSize;
-    private SerializedProperty fieldOfView;
+    private SerializedProperty modeRequest;
+    private SerializedProperty overrideSide2DYaw;
+    private SerializedProperty side2DYawDegrees;
     private SerializedProperty projectionTransitionDuration;
     private SerializedProperty useMotionCurve;
     private SerializedProperty motionCurve;
@@ -61,10 +60,11 @@ public class CameraTimelineClipInspector : Editor
         cameraTargetLocalPos = serializedObject.FindProperty("cameraTargetLocalPos");
         cameraTargetEuler = serializedObject.FindProperty("cameraTargetEuler");
         lockLookAtPlayer = serializedObject.FindProperty("lockLookAtPlayer");
-        overrideProjection = serializedObject.FindProperty("overrideProjection");
-        projection = serializedObject.FindProperty("projection");
-        orthographicSize = serializedObject.FindProperty("orthographicSize");
-        fieldOfView = serializedObject.FindProperty("fieldOfView");
+        modeRequest = serializedObject.FindProperty("modeRequest");
+        overrideSide2DYaw =
+            serializedObject.FindProperty("overrideSide2DYaw");
+        side2DYawDegrees =
+            serializedObject.FindProperty("side2DYawDegrees");
         projectionTransitionDuration = serializedObject.FindProperty("projectionTransitionDuration");
         useMotionCurve = serializedObject.FindProperty("useMotionCurve");
         motionCurve = serializedObject.FindProperty("motionCurve");
@@ -196,30 +196,36 @@ public class CameraTimelineClipInspector : Editor
     private void DrawProjectionSection()
     {
         EditorGUILayout.Space(2);
-        EditorGUILayout.LabelField("Project 2D / 3D 投影", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("Project 2D / 3D 模式申请", EditorStyles.boldLabel);
         EditorGUILayout.PropertyField(
-            overrideProjection,
-            new GUIContent("覆盖 Project 投影", "开启后本片段可主动切换正交 2D / 透视 3D"));
-        if (!overrideProjection.boolValue)
+            modeRequest,
+            new GUIContent("请求模式", "不申请 / 申请正交 2D / 申请透视 3D"));
+        if ((TimelineCameraModeRequest)modeRequest.enumValueIndex ==
+            TimelineCameraModeRequest.None)
         {
             EditorGUILayout.LabelField(
-                "保持 Project CameraModeController 当前投影",
+                "保持 Project CameraModeController 当前模式",
                 EditorStyles.miniLabel);
             return;
         }
 
-        EditorGUILayout.PropertyField(projection, new GUIContent("投影模式"));
-        if ((TimelineCameraProjection)projection.enumValueIndex == TimelineCameraProjection.Orthographic)
+        if ((TimelineCameraModeRequest)modeRequest.enumValueIndex ==
+            TimelineCameraModeRequest.Side2D)
         {
-            EditorGUILayout.PropertyField(orthographicSize, new GUIContent("正交尺寸"));
+            EditorGUILayout.PropertyField(
+                overrideSide2DYaw,
+                new GUIContent("指定 2D 角度", "申请 2D 时同时设置 Project 的绝对 Yaw"));
+            if (overrideSide2DYaw.boolValue)
+            {
+                EditorGUILayout.PropertyField(
+                    side2DYawDegrees,
+                    new GUIContent("绝对 Yaw", "0=+Z，90=右一个面"));
+            }
         }
-        else
-        {
-            EditorGUILayout.PropertyField(fieldOfView, new GUIContent("垂直视野角"));
-        }
+
         EditorGUILayout.PropertyField(
             projectionTransitionDuration,
-            new GUIContent("投影切换时间", "交给 Project CameraControlManager 执行投影矩阵过渡"));
+            new GUIContent("模式切换时间", "申请通过后由 Project CameraModeController 执行过渡"));
     }
 
     private void DrawMotionCurveSection()
@@ -243,9 +249,8 @@ public class CameraTimelineClipInspector : Editor
     private void Draw2DTurnSection()
     {
         bool is2D =
-            overrideProjection.boolValue &&
-            (TimelineCameraProjection)projection.enumValueIndex ==
-            TimelineCameraProjection.Orthographic;
+            (TimelineCameraModeRequest)modeRequest.enumValueIndex !=
+            TimelineCameraModeRequest.Perspective3D;
         if (!is2D)
         {
             return;

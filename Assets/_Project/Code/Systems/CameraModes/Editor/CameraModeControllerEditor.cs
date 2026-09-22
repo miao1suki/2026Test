@@ -35,8 +35,9 @@ namespace Project.CameraModes.Editor
 
             EditorGUILayout.HelpBox(
                 "2D 使用平视正交相机；3D 使用可环绕的透视相机，可由鼠标输入调用 RotatePerspective 与 SetPerspectiveAngles。" +
-                "运行时切换通过 ICameraViewModeSwitcher 的 SwitchTo2D / SwitchTo3D / ToggleMode 调用，并可被反向打断。" +
-                "immediate=true 时会强制完成当前目标模式的切换。",
+                "CameraControlManager 是唯一 Camera 写入者；CameraModeController 是唯一 2D/3D 与 2D Yaw 权威。" +
+                "CameraFollowController、Timeline 和编辑器通过 RequestMode 提交申请；" +
+                "CameraControlManager 会在最终写入前强制应用权威投影。",
                 MessageType.Info);
 
             DrawSection("统一控制", cameraManager, controlPriority);
@@ -129,11 +130,17 @@ namespace Project.CameraModes.Editor
 
                 if (Application.isPlaying)
                 {
-                    controller.SwitchMode(mode);
+                    CameraModeEditorRequests.RequestMode(
+                        controller,
+                        mode,
+                        false);
                 }
                 else
                 {
-                    controller.SnapToMode(mode, false);
+                    CameraModeEditorRequests.RequestMode(
+                        controller,
+                        mode,
+                        true);
                     EditorUtility.SetDirty(controller);
                     if (camera != null)
                     {
