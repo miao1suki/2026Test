@@ -42,11 +42,11 @@
 
 | 角色 | 主要产出 | 默认拥有范围 | 必须避开的范围 |
 | --- | --- | --- | --- |
-| 玩法策划 | 玩法说明、规则、参数、验收条件、少量玩法对象摆放 | `Docs/Design`、分配给自己的 Design 场景、独立数据资产 | 代码、基础 Prefab、ProjectSettings、渲染配置 |
-| 策划程序 | 把设计变成可配置组件、玩法 Prefab、关卡逻辑和编辑器工具 | Gameplay 功能目录、Logic 场景、玩法 Prefab/Data | 核心底层、他人的 Layout 场景、全局管线配置 |
-| 关卡策划 | 灰盒、动线、空间、遭遇节奏、关卡静态摆放 | Layout 场景、关卡专用 Prefab Variant | 核心代码、全局配置、Lighting/VFX 场景 |
-| 程序 | 大部分核心系统、公共模块、运行时框架、测试；按安排执行项目构建 | `Code/Core`、`Code/Systems`、Tests、程序 Sandbox | 正式关卡场景、全局渲染设置、无关美术资产 |
-| TA | Shader、材质、VFX Prefab、效果测试场景、效果参数 | `Rendering/Shaders`、`Rendering/Materials`、`Prefabs/VFX`、VFX 场景 | Renderer Asset、Render Pipeline Asset、Packages、未经批准的 Render Feature |
+| 玩法策划 | 玩法说明、规则、参数、验收条件、少量玩法对象摆放 | `Docs/Design`、被分配的 Level/Piece/Face 数据块、独立数据资产 | 代码、基础 Prefab、ProjectSettings、渲染配置 |
+| 策划程序 | 把设计变成可配置组件、玩法 Prefab、关卡逻辑和编辑器工具 | Gameplay 功能目录、被分配的关卡数据块、玩法 Prefab/Data | 核心底层、他人的关卡数据块、全局管线配置 |
+| 关卡策划 | 灰盒、动线、空间、遭遇节奏、关卡静态摆放 | 被分配的 Level/Piece/Face/Content 块、关卡专用 Prefab Variant | 核心代码、全局配置、生成预览和 Release 场景 |
+| 程序 | 大部分核心系统、公共模块、运行时框架、测试；按安排执行项目构建 | `Code/Core`、`Code/Systems`、`Development/Tests`、系统 Sandbox | Release 关卡场景、全局渲染设置、无关美术资产 |
+| TA | Shader、材质、VFX Prefab、效果测试场景、效果参数 | `Rendering/Shaders`、`Rendering/Materials`、`Prefabs/VFX`、系统 Sandbox | Renderer Asset、Render Pipeline Asset、Packages、未经批准的 Render Feature |
 | 程序 + TA / 整合者 | 主分支、集成、公共架构、管线、构建、最终质量 | `main`、Bootstrap/Master、ProjectSettings、Packages、Rendering/Settings、Build | 不替成员在同一任务分支上并发修改 |
 
 两名 2D 像素美术和一名音乐音效暂不直接操作 Git，由指定的 Git 成员代为导入运行时资源。
@@ -97,23 +97,34 @@ Assets/
       VFX/
       VolumeProfiles/
       Settings/
-    Scenes/
-      Bootstrap/
+    Development/
       Levels/
         LV001/
-          LV001_Master.unity
-          LV001_Layout.unity
-          LV001_Design.unity
-          LV001_Logic.unity
-          LV001_Lighting.unity
-          LV001_VFX.unity
-          LV001_Audio.unity
+          Authoring/
+            LV001_AuthoringDefinition.asset
+            Pieces/
+              Piece_01/
+                Front/Geometry.asset
+                Front/Traversal.asset
+                Right/...
+                Back/...
+                Left/...
+          Preview/Scenes/
+          Sandbox/
       Sandbox/
-        Designer/
-        TechDesigner/
-        Programmer/
-        TA/
+        Systems/
+          CameraModes/
       Tests/
+    Release/
+      Levels/
+        LV001/
+          Scenes/
+            LV001_Main.unity
+            LV001_GeneratedMap3D.unity
+          Data/
+    Scenes/
+      Bootstrap/        迁移期保留的公共入口
+      Levels/           迁移期旧关卡，只读收编后再归档
     ThirdParty/
 Docs/
   Design/
@@ -127,33 +138,25 @@ Docs/
 - 不创建一个所有人都要编辑的巨大 `GameBalance.asset`。参数按功能或关卡拆成独立 Data 资产。
 - 运行时 Prefab 与关卡场景分离。程序交付“组件 + 基础 Prefab”，策划通过 Inspector 配置。
 - 关卡特有改动优先使用 Prefab Variant，不直接修改公共基础 Prefab。
-- Sandbox 场景只用于个人验证，不进入 Build Settings，也不能成为正式内容唯一来源。
+- Sandbox 按关卡或系统命名，不按职位、姓名建目录；只用于验证，不进入 Build Settings，也不能成为正式内容唯一来源。
+- `Development/Levels/<LevelId>/Authoring` 是关卡唯一源数据；Preview 可重新生成。
+- `Release` 只保存验证后生成的发布场景，不在其中日常搭关卡。
 
 ## 4. 场景拆分与所有权
 
-### 4.1 场景职责
+### 4.1 关卡数据职责
 
-每个正式关卡拆成多个 Additive Scene：
+每个正式关卡以“小型源数据块 → 生成预览 → Release 场景”组织：
 
-| 场景 | 内容 | 默认拥有者 |
+| 数据 | 内容 | 默认负责方式 |
 | --- | --- | --- |
-| `LVxxx_Master` | 关卡标识、子场景清单、必要入口；不堆放普通物体 | 整合者 |
-| `LVxxx_Layout` | 地面、墙体、静态结构、碰撞、关卡道具外壳 | 关卡策划 |
-| `LVxxx_Design` | 玩法点位、奖励点、敌人点位、设计标记和参数对象 | 玩法策划 |
-| `LVxxx_Logic` | Trigger、Spawner、目标流程、关卡逻辑连接 | 策划程序 |
-| `LVxxx_Lighting` | Light、Reflection Probe、光照相关对象 | TA；烘焙由整合者执行 |
-| `LVxxx_VFX` | 环境特效实例、后处理局部 Volume、效果触发外壳 | TA |
-| `LVxxx_Audio` | 环境声、音乐触发区、AudioSource 实例 | 指定导入者或整合者 |
+| `Piece_xx/<Face>/Geometry.asset` | 网格物品、地面、墙体、静态结构 | 按关卡空间块分配 |
+| `Piece_xx/<Face>/Traversal.asset` | 绳子、梯子、平台与稳定连接 ID | 按关卡空间块分配 |
+| `Preview/Scenes/*` | 2D 总拼、3D 折叠可写投影视图 | 工具生成；不作为合并源 |
+| `Release/.../LVxxx_Main` | 系统入口与生成地图加载器 | 整合者 |
+| `Release/.../LVxxx_GeneratedMap3D` | 验证后的发布关卡实例 | 整合者发布生成 |
 
-如果单个 Layout 仍很大，按空间继续拆为：
-
-```text
-LV001_ZoneA_Layout.unity
-LV001_ZoneB_Layout.unity
-LV001_ZoneC_Layout.unity
-```
-
-不要为了分工而把强耦合对象随意拆开。一个对象及其直接逻辑应尽量留在同一个场景或 Prefab 中。
+不要为了职位拆出 Design、Logic、Layout、TA 等目录。需要多人并行时，按 Level、Piece、Face、Geometry/Traversal 划分；对象与其直接连接数据尽量处于同一块。
 
 ### 4.2 跨场景引用
 
@@ -166,9 +169,9 @@ LV001_ZoneC_Layout.unity
 
 策划不应自行发明跨场景引用方案。需要引用时交给策划程序或程序提供可复用组件。
 
-### 4.3 场景单一编辑负责人制度
+### 4.3 数据块单一编辑负责人制度
 
-本阶段不使用 Scene Fusion、对象锁定或文件锁定工具。GitHub 不会自动阻止两个人同时保存同一个 `.unity` 文件，因此只使用团队排期约定：每个场景、Prefab 或 Data 在一个任务周期内指定一名编辑负责人。
+本阶段不使用 Scene Fusion、对象锁定或文件锁定工具。GitHub 不会自动阻止两个人同时保存同一个 `.asset`、`.unity` 或 Prefab，因此每个关卡数据块、Prefab 或大型 Data 在一个任务周期内指定一名编辑负责人。
 
 1. 任务分配时列出允许修改的场景、Prefab 和 Data 文件。
 2. 整合者在团队置顶消息或任务表中登记负责人、分支和预计交接时间。
@@ -179,7 +182,7 @@ LV001_ZoneC_Layout.unity
 预约表格式：
 
 ```text
-文件：Assets/_Project/Scenes/Levels/LV001/LV001_Layout.unity
+文件：Assets/_Project/Development/Levels/LV001/Authoring/Pieces/Piece_02/Right/Traversal.asset
 拥有者：level-designer
 分支：agent/level-designer/lv001-blockout
 状态：编辑中 / 已推送待合并 / 可以接手
@@ -196,7 +199,7 @@ LV001_ZoneC_Layout.unity
 
 ### 4.4 场景保存前检查
 
-- 是否只打开并保存了任务允许的场景？
+- 是否只编辑并保存了任务允许的关卡数据块或测试场景？
 - Hierarchy 是否只出现任务相关变化？
 - 是否无意改动 Lighting、NavMesh、Occlusion、Volume 或全局设置？
 - 是否出现大批没有原因的 YAML 变化？
@@ -212,7 +215,7 @@ Lighting Bake、NavMesh Bake、Occlusion Bake、Build Settings 和全局 Volume 
 - 程序：编写 MonoBehaviour、Service、接口和自动测试。
 - 策划程序：把程序组件组装为可配置玩法 Prefab，并暴露策划需要的参数。
 - 玩法策划：调整独立 Data 或 Prefab Variant，不修改基础实现。
-- 关卡策划：在 Layout/Design 场景中放置 Prefab 实例，避免 Unpack。
+- 关卡策划：把 Prefab 实例收编到分配的 Geometry/Traversal 数据块，避免 Unpack。
 - TA：交付 VFX Prefab、材质实例和 Shader，场景内只放实例。
 - 整合者：处理公共 Prefab、全局引用和渲染管线接入。
 
@@ -249,11 +252,11 @@ Lighting Bake、NavMesh Bake、Occlusion Bake、Build Settings 和全局 Volume 
 1. 拉取所有远端分支并确认 `main` 干净。
 2. 从 `main` 建短期 `integration/<milestone-or-date>` 分支。
 3. 阅读成员交接信息，检查提交范围和异常大文件。
-4. 按顺序集成：代码与测试 → Prefab/Data → 分层场景 → 全局设置与烘焙数据。
+4. 按顺序集成：代码与测试 → Prefab/Data → 关卡 Authoring 块 → 全局设置与烘焙数据。
 5. 在 Unity 中等待完整导入和编译，处理 Console 错误。
 6. 运行相关功能测试和目标场景 Smoke Test。
-7. 检查所有 Additive Scene 组合后的实际效果。
-8. 需要时重新生成 Lighting/NavMesh/Build Settings。
+7. 通过关卡创作管线重新生成 2D/3D 预览，验证稳定 ID 与连接关系，然后发布 Release 场景。
+8. 需要时重新生成 Lighting/NavMesh/Build Settings；Build Settings 只能启用 Release 关卡场景。
 9. 生成一次开发构建并运行。
 10. 全部通过后更新 `main`，再通知成员拉取新基线。
 

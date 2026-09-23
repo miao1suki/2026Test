@@ -85,6 +85,30 @@ namespace Project.RopePaths
             SetLocalEndpoint(endpoint, transform.InverseTransformPoint(worldPosition));
         }
 
+        public void Configure(
+            Vector3 firstEndpoint,
+            Vector3 secondEndpoint,
+            float width,
+            float radius)
+        {
+            endpointA = firstEndpoint;
+            endpointB = secondEndpoint;
+            ropeWidth = Mathf.Max(0.01f, width);
+            endpointRadius = Mathf.Max(0.02f, radius);
+            EnsureId();
+            RefreshVisuals();
+        }
+
+        public void SetSegmentId(string stableId)
+        {
+            if (string.IsNullOrWhiteSpace(stableId))
+            {
+                throw new ArgumentException("绳子稳定 ID 不能为空。", nameof(stableId));
+            }
+
+            segmentId = stableId;
+        }
+
         public bool EnsureVisuals(Material material = null)
         {
             bool changed = false;

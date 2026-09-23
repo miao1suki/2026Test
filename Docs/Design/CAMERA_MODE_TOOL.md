@@ -30,7 +30,7 @@ Assets/_Project/Code/Systems/CameraModes/Editor
 打开测试场景：
 
 ```text
-Assets/_Project/Scenes/Sandbox/Programmer/LevelEditorSandbox.unity
+Assets/_Project/Development/Sandbox/Systems/CameraModes/LevelEditorSandbox.unity
 ```
 
 首选入口是 Scene View 右上角：

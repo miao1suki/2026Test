@@ -104,3 +104,7 @@ InitTestScene*.unity*
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+# Level-authoring previews are disposable projections of canonical chunk assets.
+/[Aa]ssets/_Project/[Dd]evelopment/[Ll]evels/*/[Pp]review/[Ss]cenes/*.unity
+/[Aa]ssets/_Project/[Dd]evelopment/[Ll]evels/*/[Pp]review/[Ss]cenes/*.unity.meta

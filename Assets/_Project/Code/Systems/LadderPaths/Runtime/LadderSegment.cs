@@ -29,6 +29,7 @@ namespace Project.LadderPaths
         public float Width => width;
         public float Height => height;
         public float Depth => depth;
+        public int RungCount => rungCount;
         public string SegmentId => segmentId;
         public bool HasVisuals => visualRoot != null;
 
@@ -65,6 +66,30 @@ namespace Project.LadderPaths
             local.y = Mathf.Clamp(local.y, -height * 0.5f, height * 0.5f);
             local.z = 0f;
             return transform.TransformPoint(local);
+        }
+
+        public void Configure(
+            float valueWidth,
+            float valueHeight,
+            float valueDepth,
+            int valueRungCount)
+        {
+            width = Mathf.Max(0.1f, valueWidth);
+            height = Mathf.Max(0.1f, valueHeight);
+            depth = Mathf.Max(0.05f, valueDepth);
+            rungCount = Mathf.Clamp(valueRungCount, 2, 12);
+            EnsureId();
+            EnsureVisuals();
+        }
+
+        public void SetSegmentId(string stableId)
+        {
+            if (string.IsNullOrWhiteSpace(stableId))
+            {
+                throw new ArgumentException("梯子稳定 ID 不能为空。", nameof(stableId));
+            }
+
+            segmentId = stableId;
         }
 
         public bool EnsureVisuals(Material material = null)

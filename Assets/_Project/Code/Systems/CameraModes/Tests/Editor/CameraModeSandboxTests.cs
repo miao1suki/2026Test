@@ -10,7 +10,7 @@ namespace Project.CameraModes.Tests
     public sealed class CameraModeSandboxTests
     {
         private const string ScenePath =
-            "Assets/_Project/Scenes/Sandbox/Programmer/LevelEditorSandbox.unity";
+            "Assets/_Project/Development/Sandbox/Systems/CameraModes/LevelEditorSandbox.unity";
 
         [Test]
         public void SandboxScene_HasConfiguredControllerAndIsNotInBuildSettings()
