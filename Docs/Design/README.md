@@ -10,3 +10,4 @@ this directory for runtime assets.
 - [Grid map editor](GRID_MAP_EDITOR.md)
 - [Timeline camera integration](TIMELINE_CAMERA_INTEGRATION.md)
 - [Ladder paths and climb-state integration](LADDER_PATHS.md)
+- [Input System abstraction](INPUT_ABSTRACTION.md)
