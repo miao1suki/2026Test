@@ -3,6 +3,8 @@
   "rootNamespace": "Project.InputAbstraction.Tests",
   "references": [
     "Project.InputAbstraction.Runtime",
+    "Unity.InputSystem",
+    "Unity.UGUI",
     "UnityEngine.TestRunner",
     "UnityEditor.TestRunner"
   ],

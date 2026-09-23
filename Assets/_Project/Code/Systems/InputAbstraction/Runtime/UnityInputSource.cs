@@ -5,7 +5,7 @@ using UnityEngine.InputSystem;
 
 namespace Project.InputAbstraction
 {
-    internal sealed class UnityInputSource : IInputSource, IDisposable
+    internal sealed class UnityInputSource : IInputSource, IInputActivitySource, IDisposable
     {
         private readonly InputActionAsset asset;
         private readonly InputActionMap map;
@@ -77,6 +77,14 @@ namespace Project.InputAbstraction
                 return InputDeviceMode.Auto;
             }
         }
+
+        public double LastInputTime => Math.Max(
+            Math.Max(
+                Keyboard.current?.lastUpdateTime ?? 0d,
+                Mouse.current?.lastUpdateTime ?? 0d),
+            Math.Max(
+                Gamepad.current?.lastUpdateTime ?? 0d,
+                Touchscreen.current?.lastUpdateTime ?? 0d));
 
         public bool IsActionPressed(InputActionId action) =>
             TryGetAction(action, out InputAction value) && value.IsPressed();

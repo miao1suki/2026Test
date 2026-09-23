@@ -9,6 +9,8 @@ namespace Project.InputAbstraction
     public static class GameInput
     {
         public static IInputSource Source => InputService.EnsureInstance().ActiveSource;
+        public static InputPlatformMode PlatformMode =>
+            InputService.EnsureInstance().ResolvedPlatformMode;
         public static InputDeviceMode ActiveDeviceMode => Source.ActiveDeviceMode;
         public static Vector2 PointerPosition => Source.PointerPosition;
         public static Vector2 PointerDelta => Source.PointerDelta;

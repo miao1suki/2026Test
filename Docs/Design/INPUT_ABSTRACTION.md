@@ -7,6 +7,15 @@
 或 `InputAction`。这样后续接入移动端、双端输入、重绑定和手柄提示时，只需替换或
 配置封装内部的数据源。
 
+当前支持两种打包操作模式：
+
+- `Desktop`：键盘、鼠标和手柄；
+- `Mobile`：触摸虚拟控件与原生 Input System 组合，手柄仍然同时可用。
+
+`Automatic` 会随打包目标选择模式：Android/iOS 使用 `Mobile`，其他目标使用
+`Desktop`。玩法代码可以通过 `GameInput.PlatformMode` 查询当前模式，但不要据此
+分叉玩法逻辑。
+
 封装只负责读取输入和报告设备状态，不负责玩家移动、UI 导航状态机、输入消费优先级
 或具体玩法行为。
 
@@ -76,10 +85,47 @@ GameInput.ClearExternalSource(mobileInputSource);
 
 外部数据源的生命周期由注册者负责，`InputService` 不会替它调用 `Dispose`。
 
+## 虚拟摇杆和触摸按钮
+
+在 Hierarchy 中使用：
+
+`GameObject > 2026Test > Input > 创建双平台输入 UI`
+
+工具会生成：
+
+- 左侧 `MoveJoystick`；
+- 右侧 `LookJoystick`；
+- 跳跃、互动和视角切换触摸按钮；
+- 使用新 Input System 的 `EventSystem`；
+- `PlatformUILayoutController` 双平台布局控制器。
+
+`VirtualJoystick` 和 `VirtualInputButton` 都直接写入封装内部的虚拟输入源，玩法代码
+继续使用 `GameInput`，不需要识别触摸控件。可复制按钮并在 Inspector 中修改
+`Action`，也可把摇杆映射到 `Move`、`Look` 或 `Navigate`。
+
+要在 Standalone 编辑器中预览手机触摸输入，可在场景的 `InputService` 上临时把
+`Platform Mode` 设为 `Mobile`；最终提交前通常恢复 `Automatic`。
+
+## Desktop/Mobile UI 预设
+
+`PlatformUILayoutController` 可以放在任意 Canvas 根节点，不只限于输入 UI：
+
+1. 点击“收集所有子 UI 为布局对象”，决定哪些 `RectTransform` 参与预设；
+2. 在当前 Build Target 下调整 UI；
+3. 点击“保存到当前预设”，或直接切换 Build Target；
+4. 当 Standalone 与 Android/iOS 互相切换时，编辑器会先捕获旧平台布局，再应用新平台布局；
+5. `Desktop Only Objects` 和 `Mobile Only Objects` 用于控制平台专属 UI 显隐。
+
+布局预设分别保存锚点、位置、尺寸、Pivot、缩放和旋转。运行时会在 `Awake` 按实际
+打包平台应用对应预设，因此桌面与手机 UI 的位置互不覆盖。第一次收集的新对象会用
+当前布局初始化两套预设，之后分别调整即可。
+
 ## 约定和注意事项
 
 - `WasPressedThisFrame` 等边沿查询只能在帧内读取，不要缓存到下一帧；
 - 输入封装不消费输入，也不阻止多个系统读取；需要 UI/玩法优先级时由上层协调；
 - `PointerPosition` 在没有鼠标时返回 `Vector2.zero`；移动端应通过外部数据源提供等价值；
 - `ActiveDeviceMode` 是最近更新设备的提示，不应作为玩法逻辑条件；
+- 手机模式会合并虚拟触摸与硬件输入；不要为了手柄再创建第二套玩家控制逻辑；
+- 切换打包平台前确保当前场景处于打开状态，自动同步只处理已加载场景中的控制器；
 - 不要在新功能中直接加入 `UnityEngine.InputSystem` 的设备查询，保持双端适配边界集中。
