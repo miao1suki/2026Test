@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1c2c835c6aa604743a61136b758603f8, type: 3}
-  m_Name: LV001_CubeMapWorkspace
+  m_Name: LV001_Layout
   m_EditorClassIdentifier: Project.CubeMapEditing.Runtime::Project.CubeMapEditing.CubeMapWorkspaceDefinition
   levelId: LV001
   faceWidth: 12
@@ -18,10 +18,6 @@ MonoBehaviour:
   columnsPerFace: 6
   rowsPerPiece: 2
   placementGridSubdivisions: 4
-  total2DScenePath: Assets/_Project/Scenes/Levels/LV001/LV001_Map2D.unity
-  main3DScenePath: Assets/_Project/Scenes/Levels/LV001/LV001_Main3D.unity
-  pieceScenePaths:
-  - Assets/_Project/Scenes/Levels/LV001/Pieces/LV001_Piece_01.unity
-  - Assets/_Project/Scenes/Levels/LV001/Pieces/LV001_Piece_02.unity
-  - Assets/_Project/Scenes/Levels/LV001/Pieces/LV001_Piece_03.unity
-  - Assets/_Project/Scenes/Levels/LV001/Pieces/LV001_Piece_04.unity
+  total2DScenePath: 
+  main3DScenePath: 
+  pieceScenePaths: []

@@ -9,6 +9,7 @@ namespace Project.LevelAuthoring
     public sealed class LevelAuthoringDefinition : ScriptableObject
     {
         [SerializeField] private string levelId = "LV001";
+        [SerializeField, Min(1)] private int pieceCount = 4;
         [SerializeField] private CubeMapWorkspaceDefinition workspace;
         [SerializeField] private string developmentRoot;
         [SerializeField] private string authoringRoot;
@@ -18,6 +19,7 @@ namespace Project.LevelAuthoring
         [SerializeField] private string releaseMapScenePath;
 
         public string LevelId => levelId;
+        public int PieceCount => Mathf.Max(1, pieceCount);
         public CubeMapWorkspaceDefinition Workspace => workspace;
         public string DevelopmentRoot => developmentRoot;
         public string AuthoringRoot => authoringRoot;
@@ -28,6 +30,7 @@ namespace Project.LevelAuthoring
 
         public void Configure(
             string id,
+            int pieces,
             CubeMapWorkspaceDefinition sourceWorkspace,
             string devRoot,
             string sourceRoot,
@@ -37,6 +40,7 @@ namespace Project.LevelAuthoring
             string releaseMap)
         {
             levelId = string.IsNullOrWhiteSpace(id) ? "LV001" : id;
+            pieceCount = Mathf.Max(1, pieces);
             workspace = sourceWorkspace;
             developmentRoot = devRoot;
             authoringRoot = sourceRoot;

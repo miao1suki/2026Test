@@ -13,7 +13,8 @@ MonoBehaviour:
   m_Name: LV001_AuthoringDefinition
   m_EditorClassIdentifier: Project.LevelAuthoring.Runtime::Project.LevelAuthoring.LevelAuthoringDefinition
   levelId: LV001
-  workspace: {fileID: 11400000, guid: ce29fa38122d765438a077dff6fea55d, type: 2}
+  pieceCount: 4
+  workspace: {fileID: 11400000, guid: b14087ad5eab7dd4b840c2ac6bda3f66, type: 2}
   developmentRoot: Assets/_Project/Development/Levels/LV001
   authoringRoot: Assets/_Project/Development/Levels/LV001/Authoring
   preview2DScenePath: Assets/_Project/Development/Levels/LV001/Preview/Scenes/LV001_Total2D_Preview.unity

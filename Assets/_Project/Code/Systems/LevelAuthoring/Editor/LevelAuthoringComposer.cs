@@ -41,7 +41,7 @@ namespace Project.LevelAuthoring.Editor
             int clampedPiece = Mathf.Clamp(
                 pieceIndex,
                 1,
-                Mathf.Max(1, definition.Workspace.PieceCount));
+                definition.PieceCount);
             return Build(
                 definition,
                 LevelViewMode.Piece2D,
@@ -219,7 +219,16 @@ namespace Project.LevelAuthoring.Editor
             {
                 if (!openAfterBuild && scene.isLoaded)
                 {
-                    EditorSceneManager.CloseScene(scene, true);
+                    if (SceneManager.sceneCount == 1)
+                    {
+                        EditorSceneManager.NewScene(
+                            NewSceneSetup.EmptyScene,
+                            NewSceneMode.Single);
+                    }
+                    else
+                    {
+                        EditorSceneManager.CloseScene(scene, true);
+                    }
                 }
 
                 if (previousActive.IsValid() && previousActive.isLoaded)

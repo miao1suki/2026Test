@@ -10,6 +10,7 @@ namespace Project.LevelAuthoring.Editor
     public static class LevelProjectStructureService
     {
         internal const string DefaultLevelId = "LV001";
+        internal const int DefaultPieceCount = 4;
 
         [MenuItem("Tools/2026Test/关卡创作管线/初始化 LV001 目录与数据块")]
         public static void InitializeLv001()
@@ -31,21 +32,29 @@ namespace Project.LevelAuthoring.Editor
             string levelId,
             bool selectDefinition)
         {
-            CubeMapWorkspaceDefinition workspace =
-                AssetDatabase.LoadAssetAtPath<CubeMapWorkspaceDefinition>(
-                    LevelProjectPaths.LegacyWorkspacePath);
-            if (workspace == null)
-            {
-                throw new FileNotFoundException(
-                    "找不到现有立方体地图工作区。",
-                    LevelProjectPaths.LegacyWorkspacePath);
-            }
-
             EnsureFolder(LevelProjectPaths.GetAuthoringRoot(levelId));
             EnsureFolder(LevelProjectPaths.GetPreviewSceneFolder(levelId));
             EnsureFolder($"{LevelProjectPaths.GetDevelopmentLevelRoot(levelId)}/Sandbox");
             EnsureFolder(LevelProjectPaths.GetReleaseSceneFolder(levelId));
             EnsureFolder(LevelProjectPaths.GetReleaseDataFolder(levelId));
+
+            string layoutPath = LevelProjectPaths.GetLayoutPath(levelId);
+            CubeMapWorkspaceDefinition workspace =
+                AssetDatabase.LoadAssetAtPath<CubeMapWorkspaceDefinition>(layoutPath);
+            if (workspace == null)
+            {
+                workspace = ScriptableObject.CreateInstance<CubeMapWorkspaceDefinition>();
+                workspace.Configure(
+                    levelId,
+                    12f,
+                    4f,
+                    6,
+                    2,
+                    string.Empty,
+                    string.Empty);
+                workspace.SetPlacementGridSubdivisions(4);
+                AssetDatabase.CreateAsset(workspace, layoutPath);
+            }
 
             string definitionPath = LevelProjectPaths.GetDefinitionPath(levelId);
             LevelAuthoringDefinition definition =
@@ -53,19 +62,21 @@ namespace Project.LevelAuthoring.Editor
             if (definition == null)
             {
                 definition = ScriptableObject.CreateInstance<LevelAuthoringDefinition>();
-                definition.Configure(
-                    levelId,
-                    workspace,
-                    LevelProjectPaths.GetDevelopmentLevelRoot(levelId),
-                    LevelProjectPaths.GetAuthoringRoot(levelId),
-                    LevelProjectPaths.GetPreview2DScenePath(levelId),
-                    LevelProjectPaths.GetPreview3DScenePath(levelId),
-                    LevelProjectPaths.GetReleaseMainScenePath(levelId),
-                    LevelProjectPaths.GetReleaseMapScenePath(levelId));
                 AssetDatabase.CreateAsset(definition, definitionPath);
             }
 
-            int pieceCount = Mathf.Max(1, workspace.PieceCount);
+            definition.Configure(
+                levelId,
+                DefaultPieceCount,
+                workspace,
+                LevelProjectPaths.GetDevelopmentLevelRoot(levelId),
+                LevelProjectPaths.GetAuthoringRoot(levelId),
+                LevelProjectPaths.GetPreview2DScenePath(levelId),
+                LevelProjectPaths.GetPreview3DScenePath(levelId),
+                LevelProjectPaths.GetReleaseMainScenePath(levelId),
+                LevelProjectPaths.GetReleaseMapScenePath(levelId));
+
+            int pieceCount = definition.PieceCount;
             for (int pieceIndex = 1; pieceIndex <= pieceCount; pieceIndex++)
             {
                 for (int faceIndex = 0; faceIndex < CubeMapLayoutMath.FaceCount; faceIndex++)
@@ -88,6 +99,45 @@ namespace Project.LevelAuthoring.Editor
             {
                 Selection.activeObject = definition;
                 EditorGUIUtility.PingObject(definition);
+            }
+
+            return definition;
+        }
+
+        public static void RebuildCleanLv001FromCommandLine()
+        {
+            LevelAuthoringDefinition definition = Initialize(DefaultLevelId, false);
+            for (int pieceIndex = 1; pieceIndex <= definition.PieceCount; pieceIndex++)
+            {
+                definition = LoadDefinition(DefaultLevelId);
+                LevelAuthoringComposer.BuildPiecePreview(definition, pieceIndex, false);
+            }
+
+            definition = LoadDefinition(DefaultLevelId);
+            LevelAuthoringComposer.BuildPreview(
+                definition,
+                LevelViewMode.Total2D,
+                false);
+            definition = LoadDefinition(DefaultLevelId);
+            LevelAuthoringComposer.BuildPreview(
+                definition,
+                LevelViewMode.Folded3D,
+                false);
+            definition = LoadDefinition(DefaultLevelId);
+            LevelAuthoringComposer.PublishRelease(definition);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
+
+        private static LevelAuthoringDefinition LoadDefinition(string levelId)
+        {
+            LevelAuthoringDefinition definition =
+                AssetDatabase.LoadAssetAtPath<LevelAuthoringDefinition>(
+                    LevelProjectPaths.GetDefinitionPath(levelId));
+            if (definition == null || definition.Workspace == null)
+            {
+                throw new InvalidDataException(
+                    $"无法载入关卡管线定义或布局：{levelId}");
             }
 
             return definition;

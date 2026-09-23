@@ -73,9 +73,7 @@ namespace Project.LevelAuthoring.Editor
             }
 
             EditorGUILayout.LabelField("当前空间数据块", EditorStyles.boldLabel);
-            int maxPiece = definition.Workspace != null
-                ? Mathf.Max(1, definition.Workspace.PieceCount)
-                : 1;
+            int maxPiece = definition.PieceCount;
             activePieceIndex = EditorGUILayout.IntSlider(
                 "Piece",
                 activePieceIndex,
@@ -137,25 +135,6 @@ namespace Project.LevelAuthoring.Editor
             DrawPath("发布地图场景", definition.ReleaseMapScenePath);
 
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("迁移旧关卡", EditorStyles.boldLabel);
-            EditorGUILayout.HelpBox(
-                "非破坏迁移会读取旧小拼图和旧 3D 主场景，但不会修改它们。它会清空并重新填充当前关卡的数据块，包含网格物品以及未位于生成根节点下的绳子、梯子和平台。",
-                MessageType.Warning);
-            if (GUILayout.Button("从旧场景重新收编到创作数据"))
-            {
-                if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo() &&
-                    EditorUtility.DisplayDialog(
-                        "重新收编关卡",
-                        "这会替换 Development 中现有的 LV001 创作记录，但不会修改旧场景。继续吗？",
-                        "收编",
-                        "取消"))
-                {
-                    LegacyLevelImportService.ImportAll(definition);
-                    ShowNotification(new GUIContent("旧关卡已收编"));
-                }
-            }
-
-            EditorGUILayout.Space();
             EditorGUILayout.LabelField("开发预览", EditorStyles.boldLabel);
             if (GUILayout.Button($"生成并打开 Piece {activePieceIndex:00} 小拼图"))
             {
@@ -179,6 +158,11 @@ namespace Project.LevelAuthoring.Editor
                 {
                     BuildPreview(LevelViewMode.Folded3D);
                 }
+            }
+
+            if (GUILayout.Button("重新生成全部 Piece / 2D / 3D 预览"))
+            {
+                RebuildAllPreviews();
             }
 
             if (GUILayout.Button("保存当前预览代理修改"))
@@ -216,6 +200,42 @@ namespace Project.LevelAuthoring.Editor
             }
 
             LevelAuthoringComposer.BuildPreview(definition, mode, true);
+        }
+
+        private void RebuildAllPreviews()
+        {
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+            {
+                return;
+            }
+
+            string definitionPath = AssetDatabase.GetAssetPath(definition);
+            int pieceCount = definition.PieceCount;
+            for (int pieceIndex = 1; pieceIndex <= pieceCount; pieceIndex++)
+            {
+                definition = ReloadDefinition(definitionPath);
+                LevelAuthoringComposer.BuildPiecePreview(definition, pieceIndex, false);
+            }
+
+            definition = ReloadDefinition(definitionPath);
+            LevelAuthoringComposer.BuildPreview(definition, LevelViewMode.Total2D, false);
+            definition = ReloadDefinition(definitionPath);
+            LevelAuthoringComposer.BuildPreview(definition, LevelViewMode.Folded3D, false);
+            AssetDatabase.SaveAssets();
+            ShowNotification(new GUIContent("全部开发预览已重建"));
+        }
+
+        private static LevelAuthoringDefinition ReloadDefinition(string path)
+        {
+            LevelAuthoringDefinition value =
+                AssetDatabase.LoadAssetAtPath<LevelAuthoringDefinition>(path);
+            if (value == null || value.Workspace == null)
+            {
+                throw new System.InvalidOperationException(
+                    $"无法重新载入关卡管线定义：{path}");
+            }
+
+            return value;
         }
 
         private void Publish()

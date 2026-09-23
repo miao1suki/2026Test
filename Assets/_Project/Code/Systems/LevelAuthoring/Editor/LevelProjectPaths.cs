@@ -6,8 +6,6 @@ namespace Project.LevelAuthoring.Editor
     {
         internal const string DevelopmentRoot = "Assets/_Project/Development";
         internal const string ReleaseRoot = "Assets/_Project/Release";
-        internal const string LegacyWorkspacePath =
-            "Assets/_Project/Content/Data/Levels/LV001/LV001_CubeMapWorkspace.asset";
 
         internal static string GetDevelopmentLevelRoot(string levelId) =>
             $"{DevelopmentRoot}/Levels/{levelId}";
@@ -17,6 +15,9 @@ namespace Project.LevelAuthoring.Editor
 
         internal static string GetDefinitionPath(string levelId) =>
             $"{GetAuthoringRoot(levelId)}/{levelId}_AuthoringDefinition.asset";
+
+        internal static string GetLayoutPath(string levelId) =>
+            $"{GetAuthoringRoot(levelId)}/{levelId}_Layout.asset";
 
         internal static string GetChunkFolder(
             string levelId,

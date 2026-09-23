@@ -138,28 +138,28 @@ namespace Project.CubeMapEditing.Editor
                 navigationPanel = CreatePanel(root, panelColor, 12f, 46f, null, null, 258f);
                 VisualElement navigationBody = AddTitle(
                     navigationPanel,
-                    "立方体地图编辑",
-                    "多场景协作工作区");
+                    "关卡创作管线",
+                    "数据块是唯一源，Scene 只做预览");
                 sceneBadge = CreateBadge("未初始化");
                 navigationBody.Add(sceneBadge);
                 initializeButton = CreateButton(
-                    "初始化 LV001 地图工作区",
-                    () => RunDeferred(CubeMapWorkspaceService.InitializeWorkspace),
+                    "打开新关卡管线窗口",
+                    OpenLevelAuthoringPipeline,
                     true);
                 navigationBody.Add(initializeButton);
                 VisualElement navigationRow = CreateRow();
                 total2DButton = CreateButton(
-                    "打开 2D 总拼",
-                    () => RunDeferred(CubeMapWorkspaceService.OpenTotal2D));
+                    "管理 2D 预览",
+                    OpenLevelAuthoringPipeline);
                 main3DButton = CreateButton(
-                    "打开 3D 主场景",
-                    () => RunDeferred(CubeMapWorkspaceService.OpenMain3D));
+                    "管理 3D 预览",
+                    OpenLevelAuthoringPipeline);
                 navigationRow.Add(total2DButton);
                 navigationRow.Add(main3DButton);
                 navigationBody.Add(navigationRow);
                 settingsButton = CreateButton(
-                    "工作区参数",
-                    () => RunDeferred(CubeMapWorkspaceService.SelectWorkspaceAsset));
+                    "布局与数据块",
+                    OpenLevelAuthoringPipeline);
                 navigationBody.Add(settingsButton);
 
                 piecePanel = CreatePanel(root, panelColor, null, 46f, 12f, null, 250f);
@@ -175,9 +175,8 @@ namespace Project.CubeMapEditing.Editor
                 VisualElement pieceRow = CreateRow();
                 previousPieceButton = CreateButton("◀", PreviousPiece);
                 openPieceButton = CreateButton(
-                    "打开小拼图",
-                    () => RunDeferred(() =>
-                        CubeMapWorkspaceService.OpenPiece(SelectedPieceIndex)),
+                    "打开管线选择 Piece",
+                    OpenLevelAuthoringPipeline,
                     true);
                 nextPieceButton = CreateButton("▶", NextPiece);
                 pieceRow.Add(previousPieceButton);
@@ -185,8 +184,8 @@ namespace Project.CubeMapEditing.Editor
                 pieceRow.Add(nextPieceButton);
                 pieceBody.Add(pieceRow);
                 addPieceButton = CreateButton(
-                    "＋ 新建下一关",
-                    () => RunDeferred(CubeMapWorkspaceService.AddPieceAndOpen));
+                    "Piece 数量由管线定义管理",
+                    OpenLevelAuthoringPipeline);
                 pieceBody.Add(addPieceButton);
 
                 guidePanel = CreatePanel(root, panelColor, 12f, null, null, 12f, 258f);
@@ -216,12 +215,12 @@ namespace Project.CubeMapEditing.Editor
                     "生成与拼合",
                     "生成场景可反复覆盖，源小拼图不受影响");
                 rebuild2DButton = CreateButton(
-                    "刷新 2D 总拼预览",
-                    () => RunDeferred(CubeMapWorkspaceService.BuildTotal2D));
+                    "在管线窗口重建全部预览",
+                    OpenLevelAuthoringPipeline);
                 buildBody.Add(rebuild2DButton);
                 build3DButton = CreateButton(
-                    "拼合并打开 3D 主场景",
-                    () => RunDeferred(CubeMapWorkspaceService.BuildMain3D),
+                    "在管线窗口验证并发布",
+                    OpenLevelAuthoringPipeline,
                     true);
                 build3DButton.style.height = 32f;
                 build3DButton.style.backgroundColor = new Color(0.18f, 0.52f, 0.92f, 1f);
@@ -245,39 +244,45 @@ namespace Project.CubeMapEditing.Editor
                 assemblyModeButton.style.color = assemblyMode ? Color.white : StyleKeyword.Null;
                 gridModeButton.style.color = assemblyMode ? StyleKeyword.Null : Color.white;
 
-                CubeMapWorkspaceDefinition workspace = CubeMapWorkspaceService.LoadWorkspace();
+                CubeMapPieceAuthoring activePiece =
+                    UnityEngine.Object.FindFirstObjectByType<CubeMapPieceAuthoring>();
+                CubeMapWorkspaceDefinition workspace = activePiece != null
+                    ? activePiece.Workspace
+                    : null;
                 bool ready = workspace != null;
-                initializeButton.style.display = ready ? DisplayStyle.None : DisplayStyle.Flex;
-                total2DButton.SetEnabled(ready);
-                main3DButton.SetEnabled(ready);
-                settingsButton.SetEnabled(ready);
-                piecePanel.SetEnabled(ready);
+                initializeButton.style.display = DisplayStyle.Flex;
+                total2DButton.SetEnabled(true);
+                main3DButton.SetEnabled(true);
+                settingsButton.SetEnabled(true);
+                piecePanel.SetEnabled(true);
                 guidePanel.SetEnabled(ready);
-                buildPanel.SetEnabled(ready);
+                buildPanel.SetEnabled(true);
 
                 if (!ready)
                 {
-                    sceneBadge.text = "未初始化";
-                    pieceLabel.text = "请先初始化工作区";
-                    dimensionsLabel.text = "初始化后自动创建 4 个独立关卡 Scene";
+                    sceneBadge.text = "当前不是 Piece 预览";
+                    pieceLabel.text = "请从新管线生成并打开 Piece";
+                    dimensionsLabel.text = "旧场景入口已停用；不会再创建 Scenes/Levels/LV001";
+                    previousPieceButton.SetEnabled(false);
+                    nextPieceButton.SetEnabled(false);
                     return;
                 }
 
-                int pieceCount = workspace.PieceCount;
-                SelectedPieceIndex = pieceCount > 0
-                    ? Mathf.Clamp(SelectedPieceIndex, 0, pieceCount - 1)
-                    : 0;
-                previousPieceButton.SetEnabled(pieceCount > 1);
-                nextPieceButton.SetEnabled(pieceCount > 1);
-                openPieceButton.SetEnabled(pieceCount > 0);
+                previousPieceButton.SetEnabled(false);
+                nextPieceButton.SetEnabled(false);
+                openPieceButton.SetEnabled(true);
                 addPieceButton.SetEnabled(true);
-                pieceLabel.text = pieceCount > 0
-                    ? $"第 {SelectedPieceIndex + 1:00} / {pieceCount:00} 关"
-                    : "暂无小拼图";
+                pieceLabel.text = $"当前 Piece {activePiece.PieceIndex:00}";
                 dimensionsLabel.text =
-                    $"单面宽 {workspace.FaceWidth:0.#} · 单关高 {workspace.PieceHeight:0.#} · 共 {pieceCount} 关";
-                sceneBadge.text = ResolveSceneBadge(workspace);
+                    $"单面宽 {workspace.FaceWidth:0.#} · 单 Piece 高 {workspace.PieceHeight:0.#}";
+                sceneBadge.text = "新框架 Piece 预览";
                 guidesToggle.SetValueWithoutNotify(GuidesVisible);
+            }
+
+            private static void OpenLevelAuthoringPipeline()
+            {
+                EditorApplication.ExecuteMenuItem(
+                    "Tools/2026Test/关卡创作管线/打开管线窗口");
             }
 
             private static string ResolveSceneBadge(CubeMapWorkspaceDefinition workspace)

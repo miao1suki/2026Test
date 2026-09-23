@@ -15,6 +15,7 @@ Each item has a stable ID and lives in one small ScriptableObject chunk:
 Development/Levels/LV001/
   Authoring/
     LV001_AuthoringDefinition.asset
+    LV001_Layout.asset
     Pieces/
       Piece_01/
         Front/
@@ -47,20 +48,21 @@ Release/Levels/LV001/
 Open `Tools > 2026Test > 关卡创作管线 > 打开管线窗口`.
 
 1. Initialize the level structure if it does not exist.
-2. During this migration, save current legacy scenes and click **从旧场景重新收编到创作数据**.
-   This reads old piece scenes and the old 3D scene without modifying them.
-3. Select a Piece and generate its small-piece preview. This scene contains the standard
+2. Select a Piece and generate its small-piece preview. This scene contains the standard
    `CubeMapPieceAuthoring` face roots, so the existing grid-map Scene UI can place, rotate, snap and
    overlap items using the correct fine grid.
-4. Select the matching Geometry chunk, create a grid item, then adopt it. Anchor, rotation, snap,
+3. Select the matching Geometry chunk, create a grid item, then adopt it. Anchor, rotation, snap,
    overlap and unsnapped position are preserved in the canonical record.
-5. Generate the total-2D or folded-3D preview for combined inspection.
-6. Move an existing generated object; mouse release writes it back automatically. The inspector
+4. Generate the total-2D or folded-3D preview for combined inspection.
+5. Move an existing generated object; mouse release writes it back automatically. The inspector
    also exposes explicit save and source-delete operations.
-7. To add an item with an existing map/rope/ladder tool, select the correct chunk, create/select
+6. To add an item with an existing map/rope/ladder tool, select the correct chunk, create/select
    the object, and click **把选中对象收编到当前数据块**.
-8. Validate and publish. Publishing rebuilds `Release/.../LV001_GeneratedMap3D.unity`; Release does
+7. Validate and publish. Publishing rebuilds `Release/.../LV001_GeneratedMap3D.unity`; Release does
    not reference Development chunks or preview proxies.
+
+`LV001_Layout.asset` only stores face dimensions and grid resolution. Piece count is stored by the
+new authoring definition, and no canonical data depends on a legacy `.unity` scene path.
 
 ## Multi-person Git ownership
 
@@ -80,10 +82,9 @@ Build Settings. An enabled scene under `Assets/_Project/Development` causes a bu
 runtime prefabs, materials and code remain under `Content` and `Code`; only level instances and
 generated scene composition cross this boundary.
 
-## Legacy transition
+## Removed legacy entry points
 
-The old `Assets/_Project/Scenes/Levels/LV001` scenes are intentionally retained during migration
-but are rejected from release builds.
-They may contain unsaved or uncommitted work and are never overwritten by initialization. After
-the team verifies a successful import and Release publish, move or archive them in a separate,
-explicit cleanup change.
+`Assets/_Project/Scenes/Levels/LV001` and the old path-based workspace were removed after the clean
+framework reset. Do not recreate or edit those scenes. Every persistent level object must live in a
+chunk under `Development/Levels/<LevelId>/Authoring`; Piece, total-2D and folded-3D scenes are
+generated projections and may be rebuilt at any time.

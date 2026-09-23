@@ -93,6 +93,37 @@ namespace Project.LevelAuthoring.Editor.Tests
                 Is.EqualTo(
                     "Assets/_Project/Development/Levels/LV777/Preview/Scenes/" +
                     "Pieces/LV777_Piece_02_Preview.unity"));
+            Assert.That(
+                LevelProjectPaths.GetLayoutPath("LV777"),
+                Is.EqualTo(
+                    "Assets/_Project/Development/Levels/LV777/Authoring/" +
+                    "LV777_Layout.asset"));
+        }
+
+        [Test]
+        public void Definition_PieceCount_DoesNotDependOnLegacyScenePaths()
+        {
+            CubeMapWorkspaceDefinition workspace =
+                ScriptableObject.CreateInstance<CubeMapWorkspaceDefinition>();
+            workspace.Configure("TEST", 12f, 4f, 6, 2, string.Empty, string.Empty);
+            LevelAuthoringDefinition definition =
+                ScriptableObject.CreateInstance<LevelAuthoringDefinition>();
+            definition.Configure(
+                "TEST",
+                4,
+                workspace,
+                "Development",
+                "Authoring",
+                "Preview2D",
+                "Preview3D",
+                "ReleaseMain",
+                "ReleaseMap");
+
+            Assert.That(workspace.PieceScenePaths, Is.Empty);
+            Assert.That(definition.PieceCount, Is.EqualTo(4));
+
+            Object.DestroyImmediate(definition);
+            Object.DestroyImmediate(workspace);
         }
 
         [Test]
