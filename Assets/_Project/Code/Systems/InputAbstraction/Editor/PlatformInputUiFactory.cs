@@ -178,17 +178,36 @@ namespace Project.InputAbstraction.Editor
 
         private static void EnsureEventSystem()
         {
-            if (Object.FindFirstObjectByType<EventSystem>() != null)
+            EventSystem eventSystem = Object.FindFirstObjectByType<EventSystem>(
+                FindObjectsInactive.Include);
+            if (eventSystem == null)
             {
-                return;
+                GameObject eventSystemObject = new GameObject(
+                    "EventSystem",
+                    typeof(EventSystem));
+                Undo.RegisterCreatedObjectUndo(eventSystemObject, "Create input event system");
+                eventSystem = eventSystemObject.GetComponent<EventSystem>();
             }
 
-            GameObject eventSystemObject = new GameObject(
-                "EventSystem",
-                typeof(EventSystem),
-                typeof(InputSystemUIInputModule));
-            Undo.RegisterCreatedObjectUndo(eventSystemObject, "Create input event system");
-            eventSystemObject.GetComponent<InputSystemUIInputModule>().AssignDefaultActions();
+            InputSystemUIInputModule inputModule =
+                eventSystem.GetComponent<InputSystemUIInputModule>();
+            if (inputModule == null)
+            {
+                inputModule = Undo.AddComponent<InputSystemUIInputModule>(eventSystem.gameObject);
+                inputModule.AssignDefaultActions();
+            }
+
+            BaseInputModule[] inputModules = eventSystem.GetComponents<BaseInputModule>();
+            for (int index = 0; index < inputModules.Length; index++)
+            {
+                BaseInputModule other = inputModules[index];
+                if (other != inputModule && other.enabled)
+                {
+                    Undo.RecordObject(other, "Disable legacy input module");
+                    other.enabled = false;
+                    EditorUtility.SetDirty(other);
+                }
+            }
         }
     }
 }

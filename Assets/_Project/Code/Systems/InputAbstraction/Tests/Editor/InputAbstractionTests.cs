@@ -104,6 +104,16 @@ namespace Project.InputAbstraction.Tests
         public void SetupMenu_CreatesCompletePlatformInputUi()
         {
             EventSystem existingEventSystem = Object.FindFirstObjectByType<EventSystem>();
+            GameObject createdLegacyEventSystem = null;
+            if (existingEventSystem == null)
+            {
+                createdLegacyEventSystem = new GameObject(
+                    "LegacyEventSystem",
+                    typeof(EventSystem),
+                    typeof(StandaloneInputModule));
+                existingEventSystem = createdLegacyEventSystem.GetComponent<EventSystem>();
+            }
+
             Assert.That(
                 EditorApplication.ExecuteMenuItem(
                     "GameObject/2026Test/Input/创建双平台输入 UI"),
@@ -119,12 +129,17 @@ namespace Project.InputAbstraction.Tests
                 controller.GetComponentsInChildren<VirtualInputButton>(true).Length,
                 Is.EqualTo(3));
             Assert.That(Object.FindFirstObjectByType<InputSystemUIInputModule>(), Is.Not.Null);
-
-            EventSystem generatedEventSystem = Object.FindFirstObjectByType<EventSystem>();
-            Object.DestroyImmediate(controller.gameObject);
-            if (existingEventSystem == null && generatedEventSystem != null)
+            StandaloneInputModule legacyModule =
+                existingEventSystem.GetComponent<StandaloneInputModule>();
+            if (legacyModule != null)
             {
-                Object.DestroyImmediate(generatedEventSystem.gameObject);
+                Assert.That(legacyModule.enabled, Is.False);
+            }
+
+            Object.DestroyImmediate(controller.gameObject);
+            if (createdLegacyEventSystem != null)
+            {
+                Object.DestroyImmediate(createdLegacyEventSystem);
             }
         }
 
