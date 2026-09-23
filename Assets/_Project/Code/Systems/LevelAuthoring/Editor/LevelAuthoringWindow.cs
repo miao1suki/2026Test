@@ -1,3 +1,4 @@
+using Project.CubeMapEditing;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -11,6 +12,9 @@ namespace Project.LevelAuthoring.Editor
 
         private LevelAuthoringDefinition definition;
         private LevelAuthoringChunk activeChunk;
+        private int activePieceIndex = 1;
+        private CubeMapFace activeFace = CubeMapFace.Front;
+        private LevelContentKind activeContentKind = LevelContentKind.Geometry;
         private Vector2 scroll;
 
         [MenuItem("Tools/2026Test/关卡创作管线/打开管线窗口")]
@@ -68,6 +72,35 @@ namespace Project.LevelAuthoring.Editor
                 return;
             }
 
+            EditorGUILayout.LabelField("当前空间数据块", EditorStyles.boldLabel);
+            int maxPiece = definition.Workspace != null
+                ? Mathf.Max(1, definition.Workspace.PieceCount)
+                : 1;
+            activePieceIndex = EditorGUILayout.IntSlider(
+                "Piece",
+                activePieceIndex,
+                1,
+                maxPiece);
+            activeFace = (CubeMapFace)EditorGUILayout.EnumPopup("Face", activeFace);
+            int kindIndex = activeContentKind == LevelContentKind.Geometry ? 0 : 1;
+            kindIndex = EditorGUILayout.Popup(
+                "内容",
+                kindIndex,
+                new[] { "Geometry（网格物品）", "Traversal（绳/梯/平台）" });
+            activeContentKind = kindIndex == 0
+                ? LevelContentKind.Geometry
+                : LevelContentKind.Traversal;
+            if (GUILayout.Button("选中对应数据块"))
+            {
+                activeChunk = LevelAuthoringRepository.FindChunk(
+                    definition,
+                    activePieceIndex,
+                    activeFace,
+                    activeContentKind);
+                Selection.activeObject = activeChunk;
+                EditorGUIUtility.PingObject(activeChunk);
+            }
+
             activeChunk = (LevelAuthoringChunk)EditorGUILayout.ObjectField(
                 "当前创作数据块",
                 activeChunk,
@@ -87,7 +120,11 @@ namespace Project.LevelAuthoring.Editor
                         : LevelViewMode.Total2D;
                     if (LevelAuthoringAdoptionService.AdoptSelected(activeChunk) && info != null)
                     {
-                        LevelAuthoringComposer.BuildPreview(definition, mode, true);
+                        LevelAuthoringComposer.RebuildPreview(
+                            definition,
+                            mode,
+                            info.PieceIndex,
+                            true);
                     }
                 }
             }
@@ -120,6 +157,17 @@ namespace Project.LevelAuthoring.Editor
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("开发预览", EditorStyles.boldLabel);
+            if (GUILayout.Button($"生成并打开 Piece {activePieceIndex:00} 小拼图"))
+            {
+                if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+                {
+                    LevelAuthoringComposer.BuildPiecePreview(
+                        definition,
+                        activePieceIndex,
+                        true);
+                }
+            }
+
             using (new EditorGUILayout.HorizontalScope())
             {
                 if (GUILayout.Button("生成并打开 2D 总拼"))

@@ -123,6 +123,12 @@ namespace Project.LevelAuthoring.Editor
                             placement.gameObject.name,
                             CapturePose(placement.transform, faceRoot));
                         record.Configure(prefab, placement.Definition);
+                        record.ConfigureGrid(
+                            placement.AnchorCell,
+                            placement.RotationSteps,
+                            placement.SnappedToGrid,
+                            placement.AllowOverlap,
+                            placement.UnsnappedLocalPosition);
                         geometry.Add(record);
                         EditorUtility.SetDirty(geometry);
                     }

@@ -61,16 +61,23 @@ namespace Project.LevelAuthoring
         [SerializeField] private string levelId;
         [SerializeField] private LevelViewMode viewMode;
         [SerializeField] private string sourceHash;
+        [SerializeField] private int pieceIndex;
 
         public string LevelId => levelId;
         public LevelViewMode ViewMode => viewMode;
         public string SourceHash => sourceHash;
+        public int PieceIndex => pieceIndex;
 
-        public void Configure(string id, LevelViewMode mode, string hash)
+        public void Configure(
+            string id,
+            LevelViewMode mode,
+            string hash,
+            int sourcePieceIndex = 0)
         {
             levelId = id;
             viewMode = mode;
             sourceHash = hash;
+            pieceIndex = Mathf.Max(0, sourcePieceIndex);
         }
     }
 }

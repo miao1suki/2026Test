@@ -40,6 +40,10 @@ namespace Project.LevelAuthoring.Editor
         internal static string GetPreview3DScenePath(string levelId) =>
             $"{GetPreviewSceneFolder(levelId)}/{levelId}_Folded3D_Preview.unity";
 
+        internal static string GetPiecePreviewScenePath(string levelId, int pieceIndex) =>
+            $"{GetPreviewSceneFolder(levelId)}/Pieces/" +
+            $"{levelId}_Piece_{pieceIndex:00}_Preview.unity";
+
         internal static string GetReleaseLevelRoot(string levelId) =>
             $"{ReleaseRoot}/Levels/{levelId}";
 
