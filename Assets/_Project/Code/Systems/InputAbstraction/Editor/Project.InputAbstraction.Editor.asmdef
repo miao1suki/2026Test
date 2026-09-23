@@ -1,11 +1,14 @@
 {
-  "name": "Project.InputAbstraction.Runtime",
-  "rootNamespace": "Project.InputAbstraction",
+  "name": "Project.InputAbstraction.Editor",
+  "rootNamespace": "Project.InputAbstraction.Editor",
   "references": [
+    "Project.InputAbstraction.Runtime",
     "Unity.InputSystem",
     "Unity.UGUI"
   ],
-  "includePlatforms": [],
+  "includePlatforms": [
+    "Editor"
+  ],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
   "overrideReferences": false,

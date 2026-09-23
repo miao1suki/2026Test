@@ -12,12 +12,18 @@ namespace Project.InputAbstraction
         [SerializeField]
         private InputActionAsset actionAsset;
 
+        [SerializeField]
+        private InputPlatformMode platformMode = InputPlatformMode.Automatic;
+
         private UnityInputSource unitySource;
+        private IInputSource builtInSource;
         private IInputSource externalSource;
 
         public static InputService Instance => instance;
-        public IInputSource ActiveSource => externalSource ?? unitySource;
+        public IInputSource ActiveSource => externalSource ?? builtInSource;
         public InputActionAsset ConfiguredActionAsset => actionAsset;
+        public InputPlatformMode ConfiguredPlatformMode => platformMode;
+        public InputPlatformMode ResolvedPlatformMode => InputPlatformResolver.Resolve(platformMode);
 
         public static InputService EnsureInstance()
         {
@@ -82,6 +88,7 @@ namespace Project.InputAbstraction
             {
                 unitySource?.Dispose();
                 unitySource = null;
+                builtInSource = null;
             }
         }
 
@@ -99,6 +106,9 @@ namespace Project.InputAbstraction
             if (unitySource == null)
             {
                 unitySource = new UnityInputSource(actionAsset);
+                builtInSource = ResolvedPlatformMode == InputPlatformMode.Mobile
+                    ? new CompositeInputSource(unitySource, new VirtualInputSource())
+                    : unitySource;
             }
         }
     }
