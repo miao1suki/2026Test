@@ -1,6 +1,9 @@
 using NUnit.Framework;
 using Project.CubeMapEditing;
+using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Project.LevelAuthoring.Editor.Tests
 {
@@ -85,6 +88,68 @@ namespace Project.LevelAuthoring.Editor.Tests
             Assert.That(path, Does.Not.Contain("Designer"));
             Assert.That(LevelProjectPaths.GetReleaseMapScenePath("LV777"),
                 Does.StartWith("Assets/_Project/Release/Levels/LV777/"));
+            Assert.That(
+                LevelProjectPaths.GetPiecePreviewScenePath("LV777", 2),
+                Is.EqualTo(
+                    "Assets/_Project/Development/Levels/LV777/Preview/Scenes/" +
+                    "Pieces/LV777_Piece_02_Preview.unity"));
+        }
+
+        [Test]
+        public void MapRecord_PreservesGridEditingState()
+        {
+            LevelMapItemRecord record = new();
+            record.Initialize("map-a", "Map", LevelPose.Identity);
+            record.ConfigureGrid(
+                new Vector2Int(7, 3),
+                -1,
+                false,
+                true,
+                new Vector2(1.25f, -0.5f));
+
+            Assert.That(record.AnchorCell, Is.EqualTo(new Vector2Int(7, 3)));
+            Assert.That(record.RotationSteps, Is.EqualTo(3));
+            Assert.That(record.SnappedToGrid, Is.False);
+            Assert.That(record.AllowOverlap, Is.True);
+            Assert.That(record.UnsnappedLocalPosition, Is.EqualTo(new Vector2(1.25f, -0.5f)));
+        }
+
+        [Test]
+        public void PiecePreview_ProvidesGridEditorAuthoringContext()
+        {
+            const string levelId = "LV001";
+            string definitionPath = LevelProjectPaths.GetDefinitionPath(levelId);
+            LevelAuthoringDefinition definition =
+                AssetDatabase.LoadAssetAtPath<LevelAuthoringDefinition>(definitionPath);
+            Assert.That(definition, Is.Not.Null);
+            string previewPath = LevelProjectPaths.GetPiecePreviewScenePath(levelId, 1);
+
+            LevelAuthoringComposer.BuildPiecePreview(definition, 1, false);
+            Scene scene = EditorSceneManager.OpenScene(previewPath, OpenSceneMode.Additive);
+            try
+            {
+                CubeMapPieceAuthoring authoring = null;
+                foreach (GameObject root in scene.GetRootGameObjects())
+                {
+                    authoring = root.GetComponentInChildren<CubeMapPieceAuthoring>(true);
+                    if (authoring != null) break;
+                }
+
+                Assert.That(authoring, Is.Not.Null);
+                Assert.That(authoring.PieceIndex, Is.EqualTo(1));
+                for (int index = 0; index < CubeMapLayoutMath.FaceCount; index++)
+                {
+                    Transform faceRoot = authoring.GetFaceRoot((CubeMapFace)index);
+                    Assert.That(faceRoot, Is.Not.Null);
+                    Assert.That(faceRoot.Find("Content"), Is.Not.Null);
+                }
+            }
+            finally
+            {
+                EditorSceneManager.CloseScene(scene, true);
+                AssetDatabase.DeleteAsset(
+                    $"{LevelProjectPaths.GetPreviewSceneFolder(levelId)}/Pieces");
+            }
         }
 
         private static LevelRopeRecord CreateRope(string id)

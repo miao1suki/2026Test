@@ -111,6 +111,16 @@ namespace Project.LevelAuthoring.Editor
                     ladder.Depth,
                     ladder.RungCount);
             }
+            else if (record is LevelMapItemRecord mapRecord &&
+                     proxy.TryGetComponent(out GridMapPlacement placement))
+            {
+                mapRecord.ConfigureGrid(
+                    placement.AnchorCell,
+                    placement.RotationSteps,
+                    placement.SnappedToGrid,
+                    placement.AllowOverlap,
+                    placement.UnsnappedLocalPosition);
+            }
 
             EditorUtility.SetDirty(proxy.SourceChunk);
             return true;
@@ -143,7 +153,13 @@ namespace Project.LevelAuthoring.Editor
                     LevelProjectPaths.GetDefinitionPath(chunk.LevelId));
             if (definition != null)
             {
-                LevelAuthoringComposer.BuildPreview(definition, mode, true);
+                LevelGeneratedSceneInfo info =
+                    Object.FindFirstObjectByType<LevelGeneratedSceneInfo>();
+                LevelAuthoringComposer.RebuildPreview(
+                    definition,
+                    mode,
+                    info != null ? info.PieceIndex : chunk.PieceIndex,
+                    true);
             }
         }
 

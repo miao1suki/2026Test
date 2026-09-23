@@ -90,17 +90,41 @@ namespace Project.LevelAuthoring
     {
         [SerializeField] private GameObject prefab;
         [SerializeField] private GridMapItemDefinition gridDefinition;
+        [SerializeField] private Vector2Int anchorCell;
+        [SerializeField, Range(0, 3)] private int rotationSteps;
+        [SerializeField] private bool snappedToGrid = true;
+        [SerializeField] private bool allowOverlap = true;
+        [SerializeField] private Vector2 unsnappedLocalPosition;
 
         public override LevelEntityKind Kind => LevelEntityKind.MapItem;
         public GameObject Prefab => prefab != null
             ? prefab
             : gridDefinition != null ? gridDefinition.Prefab : null;
         public GridMapItemDefinition GridDefinition => gridDefinition;
+        public Vector2Int AnchorCell => anchorCell;
+        public int RotationSteps => rotationSteps;
+        public bool SnappedToGrid => snappedToGrid;
+        public bool AllowOverlap => allowOverlap;
+        public Vector2 UnsnappedLocalPosition => unsnappedLocalPosition;
 
         public void Configure(GameObject value, GridMapItemDefinition definition)
         {
             prefab = value;
             gridDefinition = definition;
+        }
+
+        public void ConfigureGrid(
+            Vector2Int cell,
+            int rotation,
+            bool useGrid,
+            bool permitOverlap,
+            Vector2 unsnappedPosition)
+        {
+            anchorCell = cell;
+            rotationSteps = ((rotation % 4) + 4) % 4;
+            snappedToGrid = useGrid;
+            allowOverlap = permitOverlap;
+            unsnappedLocalPosition = unsnappedPosition;
         }
     }
 

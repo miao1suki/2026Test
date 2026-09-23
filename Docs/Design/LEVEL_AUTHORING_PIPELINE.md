@@ -49,12 +49,17 @@ Open `Tools > 2026Test > 关卡创作管线 > 打开管线窗口`.
 1. Initialize the level structure if it does not exist.
 2. During this migration, save current legacy scenes and click **从旧场景重新收编到创作数据**.
    This reads old piece scenes and the old 3D scene without modifying them.
-3. Generate the total-2D or folded-3D preview.
-4. Move an existing generated object; mouse release writes it back automatically. The inspector
+3. Select a Piece and generate its small-piece preview. This scene contains the standard
+   `CubeMapPieceAuthoring` face roots, so the existing grid-map Scene UI can place, rotate, snap and
+   overlap items using the correct fine grid.
+4. Select the matching Geometry chunk, create a grid item, then adopt it. Anchor, rotation, snap,
+   overlap and unsnapped position are preserved in the canonical record.
+5. Generate the total-2D or folded-3D preview for combined inspection.
+6. Move an existing generated object; mouse release writes it back automatically. The inspector
    also exposes explicit save and source-delete operations.
-5. To add an item with an existing map/rope/ladder tool, select the correct chunk, create/select
+7. To add an item with an existing map/rope/ladder tool, select the correct chunk, create/select
    the object, and click **把选中对象收编到当前数据块**.
-6. Validate and publish. Publishing rebuilds `Release/.../LV001_GeneratedMap3D.unity`; Release does
+8. Validate and publish. Publishing rebuilds `Release/.../LV001_GeneratedMap3D.unity`; Release does
    not reference Development chunks or preview proxies.
 
 ## Multi-person Git ownership

@@ -87,6 +87,12 @@ namespace Project.LevelAuthoring.Editor
                         ? placement.Definition.Prefab
                         : PrefabUtility.GetCorrespondingObjectFromSource(placement.gameObject),
                     placement.Definition);
+                mapRecord.ConfigureGrid(
+                    placement.AnchorCell,
+                    placement.RotationSteps,
+                    placement.SnappedToGrid,
+                    placement.AllowOverlap,
+                    placement.UnsnappedLocalPosition);
                 record = mapRecord;
             }
             else
@@ -108,6 +114,11 @@ namespace Project.LevelAuthoring.Editor
                     $"{record.DisplayName} 应收编到 {expectedKind}.asset，" +
                     $"当前选择的是 {chunk.ContentKind}.asset。",
                     "确定");
+                return false;
+            }
+
+            if (!ValidatePreviewTarget(chunk, sourceTransform))
+            {
                 return false;
             }
 
@@ -158,6 +169,51 @@ namespace Project.LevelAuthoring.Editor
                 chunk.Face,
                 mode);
             return LevelCoordinateUtility.FromViewPose(target, frame);
+        }
+
+        private static bool ValidatePreviewTarget(
+            LevelAuthoringChunk chunk,
+            Transform source)
+        {
+            LevelGeneratedSceneInfo info =
+                Object.FindFirstObjectByType<LevelGeneratedSceneInfo>();
+            if (info == null || info.ViewMode != LevelViewMode.Piece2D)
+            {
+                return true;
+            }
+
+            if (info.PieceIndex != chunk.PieceIndex)
+            {
+                EditorUtility.DisplayDialog(
+                    "Piece 不匹配",
+                    $"当前预览是 Piece {info.PieceIndex:00}，" +
+                    $"但数据块属于 Piece {chunk.PieceIndex:00}。",
+                    "确定");
+                return false;
+            }
+
+            CubeMapPieceAuthoring piece =
+                Object.FindFirstObjectByType<CubeMapPieceAuthoring>();
+            if (piece == null)
+            {
+                return true;
+            }
+
+            for (int index = 0; index < CubeMapLayoutMath.FaceCount; index++)
+            {
+                CubeMapFace face = (CubeMapFace)index;
+                Transform faceRoot = piece.GetFaceRoot(face);
+                if (faceRoot != null && source.IsChildOf(faceRoot) && face != chunk.Face)
+                {
+                    EditorUtility.DisplayDialog(
+                        "Face 不匹配",
+                        $"选中对象位于 {face}，但数据块属于 {chunk.Face}。",
+                        "确定");
+                    return false;
+                }
+            }
+
+            return true;
         }
     }
 }

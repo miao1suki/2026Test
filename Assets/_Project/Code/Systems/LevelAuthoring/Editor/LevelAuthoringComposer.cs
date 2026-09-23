@@ -20,10 +20,48 @@ namespace Project.LevelAuthoring.Editor
             LevelViewMode viewMode,
             bool openAfterBuild)
         {
+            if (viewMode == LevelViewMode.Piece2D)
+            {
+                throw new System.ArgumentException(
+                    "Piece2D 预览需要指定 PieceIndex。",
+                    nameof(viewMode));
+            }
+
             string path = viewMode == LevelViewMode.Total2D
                 ? definition.Preview2DScenePath
                 : definition.Preview3DScenePath;
-            return Build(definition, viewMode, path, true, openAfterBuild);
+            return Build(definition, viewMode, path, true, openAfterBuild, 0);
+        }
+
+        internal static Scene BuildPiecePreview(
+            LevelAuthoringDefinition definition,
+            int pieceIndex,
+            bool openAfterBuild)
+        {
+            int clampedPiece = Mathf.Clamp(
+                pieceIndex,
+                1,
+                Mathf.Max(1, definition.Workspace.PieceCount));
+            return Build(
+                definition,
+                LevelViewMode.Piece2D,
+                LevelProjectPaths.GetPiecePreviewScenePath(
+                    definition.LevelId,
+                    clampedPiece),
+                true,
+                openAfterBuild,
+                clampedPiece);
+        }
+
+        internal static Scene RebuildPreview(
+            LevelAuthoringDefinition definition,
+            LevelViewMode viewMode,
+            int pieceIndex,
+            bool openAfterBuild)
+        {
+            return viewMode == LevelViewMode.Piece2D
+                ? BuildPiecePreview(definition, pieceIndex, openAfterBuild)
+                : BuildPreview(definition, viewMode, openAfterBuild);
         }
 
         internal static Scene PublishRelease(LevelAuthoringDefinition definition)
@@ -33,7 +71,8 @@ namespace Project.LevelAuthoring.Editor
                 LevelViewMode.Release3D,
                 definition.ReleaseMapScenePath,
                 false,
-                false);
+                false,
+                0);
         }
 
         private static Scene Build(
@@ -41,31 +80,64 @@ namespace Project.LevelAuthoring.Editor
             LevelViewMode viewMode,
             string scenePath,
             bool editablePreview,
-            bool openAfterBuild)
+            bool openAfterBuild,
+            int pieceFilter)
         {
             if (definition == null || definition.Workspace == null)
             {
                 throw new System.InvalidOperationException("关卡管线定义或工作区为空。");
             }
 
-            List<LevelAuthoringChunk> chunks =
-                LevelAuthoringRepository.LoadChunks(definition);
-            string sourceHash = LevelAuthoringRepository.ComputeSourceHash(chunks);
+            string definitionPath = AssetDatabase.GetAssetPath(definition);
+            string workspacePath = AssetDatabase.GetAssetPath(definition.Workspace);
+            string levelId = definition.LevelId;
             Scene previousActive = SceneManager.GetActiveScene();
+            bool replaceCleanUntitledScene =
+                previousActive.IsValid() &&
+                string.IsNullOrWhiteSpace(previousActive.path) &&
+                !previousActive.isDirty;
             Scene scene = EditorSceneManager.NewScene(
                 NewSceneSetup.EmptyScene,
-                NewSceneMode.Additive);
+                replaceCleanUntitledScene
+                    ? NewSceneMode.Single
+                    : NewSceneMode.Additive);
             SceneManager.SetActiveScene(scene);
 
             try
             {
+                definition = AssetDatabase.LoadAssetAtPath<LevelAuthoringDefinition>(
+                    definitionPath);
+                CubeMapWorkspaceDefinition workspace =
+                    AssetDatabase.LoadAssetAtPath<CubeMapWorkspaceDefinition>(workspacePath);
+                if (definition == null || workspace == null)
+                {
+                    throw new System.InvalidOperationException(
+                        "创建预览场景后无法重新载入关卡管线资产。");
+                }
+
+                List<LevelAuthoringChunk> chunks =
+                    LevelAuthoringRepository.LoadChunks(definition);
+                if (pieceFilter > 0)
+                {
+                    chunks.RemoveAll(chunk => chunk.PieceIndex != pieceFilter);
+                }
+
+                string sourceHash =
+                    LevelAuthoringRepository.ComputeSourceHash(chunks);
                 GameObject root = new GameObject("[GENERATED] Level Content");
                 SceneManager.MoveGameObjectToScene(root, scene);
                 LevelGeneratedSceneInfo info = root.AddComponent<LevelGeneratedSceneInfo>();
-                info.Configure(definition.LevelId, viewMode, sourceHash);
+                info.Configure(levelId, viewMode, sourceHash, pieceFilter);
 
                 GameObject geometryRoot = CreateChild("Geometry", root.transform);
                 GameObject traversalRoot = CreateChild("Traversal", root.transform);
+                Dictionary<CubeMapFace, Transform> pieceContentRoots =
+                    viewMode == LevelViewMode.Piece2D
+                        ? CreatePieceAuthoring(
+                            root.transform,
+                            workspace,
+                            pieceFilter)
+                        : null;
                 RopePathNetwork ropeNetwork =
                     CreateChild("RopePathNetwork", traversalRoot.transform)
                         .AddComponent<RopePathNetwork>();
@@ -81,7 +153,7 @@ namespace Project.LevelAuthoring.Editor
                 {
                     LevelAuthoringChunk chunk = chunks[index];
                     LevelSectionFrame frame = LevelCoordinateUtility.GetFrame(
-                        definition.Workspace,
+                        workspace,
                         chunk.PieceIndex,
                         chunk.Face,
                         viewMode);
@@ -90,7 +162,12 @@ namespace Project.LevelAuthoring.Editor
                         frame,
                         viewMode,
                         scene,
-                        geometryRoot.transform,
+                        pieceContentRoots != null &&
+                        pieceContentRoots.TryGetValue(
+                            chunk.Face,
+                            out Transform contentRoot)
+                            ? contentRoot
+                            : geometryRoot.transform,
                         editablePreview);
                     BuildRopes(
                         chunk,
@@ -187,6 +264,20 @@ namespace Project.LevelAuthoring.Editor
                 instance.name = record.DisplayName;
                 instance.transform.SetParent(parent, true);
                 ApplyPose(instance.transform, record.Pose, frame);
+                if (record.GridDefinition != null)
+                {
+                    GridMapPlacement placement =
+                        instance.GetComponent<GridMapPlacement>() ??
+                        instance.AddComponent<GridMapPlacement>();
+                    placement.Configure(
+                        record.GridDefinition,
+                        record.AnchorCell,
+                        record.RotationSteps,
+                        record.SnappedToGrid,
+                        record.AllowOverlap,
+                        record.UnsnappedLocalPosition);
+                }
+
                 AddMarkers(instance, chunk, record, viewMode, editablePreview);
             }
         }
@@ -331,6 +422,38 @@ namespace Project.LevelAuthoring.Editor
             GameObject gameObject = new GameObject(name);
             gameObject.transform.SetParent(parent, false);
             return gameObject;
+        }
+
+        private static Dictionary<CubeMapFace, Transform> CreatePieceAuthoring(
+            Transform parent,
+            CubeMapWorkspaceDefinition workspace,
+            int pieceIndex)
+        {
+            GameObject pieceRoot = CreateChild(
+                $"{workspace.LevelId}_Piece_{pieceIndex:00}_Authoring",
+                parent);
+            CubeMapPieceAuthoring authoring =
+                pieceRoot.AddComponent<CubeMapPieceAuthoring>();
+            Transform[] faceRoots = new Transform[CubeMapLayoutMath.FaceCount];
+            Dictionary<CubeMapFace, Transform> contentRoots = new();
+            for (int faceIndex = 0;
+                 faceIndex < CubeMapLayoutMath.FaceCount;
+                 faceIndex++)
+            {
+                CubeMapFace face = (CubeMapFace)faceIndex;
+                GameObject faceRoot = CreateChild(
+                    $"Face_{faceIndex + 1:00}_{face}_" +
+                    CubeMapLayoutMath.GetFaceLabel(face),
+                    pieceRoot.transform);
+                faceRoot.transform.localPosition =
+                    CubeMapLayoutMath.GetPieceFaceCenter(face, workspace.FaceWidth);
+                GameObject content = CreateChild("Content", faceRoot.transform);
+                faceRoots[faceIndex] = faceRoot.transform;
+                contentRoots.Add(face, content.transform);
+            }
+
+            authoring.Configure(workspace, pieceIndex, faceRoots);
+            return contentRoots;
         }
 
         private readonly struct PendingPlatform
