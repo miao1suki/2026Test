@@ -153,7 +153,10 @@ namespace Project.InputAbstraction.Tests
             public InputDeviceMode ActiveDeviceMode => DeviceMode;
             public bool IsActionPressed(InputActionId action) => Pressed;
             public bool WasActionPressedThisFrame(InputActionId action) => Pressed;
+            public bool WasActionTriggeredThisFrame(InputActionId action) => Pressed;
             public bool WasActionReleasedThisFrame(InputActionId action) => false;
+            public InputActionTrigger GetActionTrigger(InputActionId action) =>
+                InputActionTrigger.Press;
             public float ReadAxis(InputActionId action) => Move.x;
             public Vector2 ReadVector2(InputActionId action) => Move;
             public Vector2 PointerPosition => Vector2.zero;

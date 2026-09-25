@@ -175,8 +175,14 @@ namespace Project.InputAbstraction
         public bool WasActionPressedThisFrame(InputActionId action) =>
             VirtualInputState.WasPressedThisFrame(action);
 
+        public bool WasActionTriggeredThisFrame(InputActionId action) =>
+            VirtualInputState.WasPressedThisFrame(action);
+
         public bool WasActionReleasedThisFrame(InputActionId action) =>
             VirtualInputState.WasReleasedThisFrame(action);
+
+        public InputActionTrigger GetActionTrigger(InputActionId action) =>
+            InputActionTrigger.Press;
 
         public float ReadAxis(InputActionId action) => VirtualInputState.ReadVector(action).x;
         public Vector2 ReadVector2(InputActionId action) => VirtualInputState.ReadVector(action);

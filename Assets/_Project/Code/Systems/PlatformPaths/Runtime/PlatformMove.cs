@@ -29,6 +29,9 @@ namespace Project.PlatformPaths
         private CameraModeController cameraModeController;
 
         [SerializeField]
+        private PlatformRiderZone riderZone;
+
+        [SerializeField]
         private RopeProjectionDirection projectionDirection =
             RopeProjectionDirection.Front;
 
@@ -111,6 +114,10 @@ namespace Project.PlatformPaths
             {
                 playerTag = value;
                 passengerCarrier.PassengerTag = value;
+                if (riderZone != null)
+                {
+                    riderZone.Configure(this, value);
+                }
             }
         }
 
@@ -139,6 +146,7 @@ namespace Project.PlatformPaths
         {
             ResolveReferences();
             passengerCarrier.PassengerTag = playerTag;
+            EnsureRiderZone();
             CaptureInitialBinding();
             BuildGraph();
 
@@ -252,6 +260,21 @@ namespace Project.PlatformPaths
             StartWandering();
         }
 
+        public void CapturePassenger(Collider collider)
+        {
+            passengerCarrier.Capture(transform, collider);
+        }
+
+        public void ReleasePassenger(Transform passenger)
+        {
+            passengerCarrier.Release(passenger);
+        }
+
+        public void ReleaseAllPassengers()
+        {
+            passengerCarrier.ReleaseAll();
+        }
+
         private void ResolveReferences()
         {
             if (ropePlatform == null)
@@ -269,6 +292,66 @@ namespace Project.PlatformPaths
                 cameraModeController =
                     FindFirstObjectByType<CameraModeController>();
             }
+        }
+
+        private void EnsureRiderZone()
+        {
+            if (riderZone == null)
+            {
+                riderZone = GetComponentInChildren<PlatformRiderZone>(
+                    true);
+            }
+
+            if (riderZone == null)
+            {
+                Collider platformCollider = GetComponent<Collider>();
+                if (platformCollider == null)
+                {
+                    return;
+                }
+
+                GameObject zoneObject =
+                    new GameObject("__RiderZone");
+                zoneObject.transform.SetParent(transform, false);
+                riderZone =
+                    zoneObject.AddComponent<PlatformRiderZone>();
+            }
+
+            riderZone.Configure(this, playerTag);
+            ConfigureRiderZoneCollider();
+        }
+
+        private void ConfigureRiderZoneCollider()
+        {
+            Collider platformCollider = GetComponent<Collider>();
+            BoxCollider zoneCollider =
+                riderZone.GetComponent<BoxCollider>();
+            if (platformCollider == null ||
+                zoneCollider == null)
+            {
+                return;
+            }
+
+            Bounds bounds = platformCollider.bounds;
+            float zoneHeight = Mathf.Min(
+                passengerCheckHeight,
+                0.3f);
+            Vector3 scale = transform.lossyScale;
+            Transform zoneTransform = riderZone.transform;
+            zoneTransform.localScale = new Vector3(
+                Mathf.Approximately(scale.x, 0f) ? 1f : 1f / scale.x,
+                Mathf.Approximately(scale.y, 0f) ? 1f : 1f / scale.y,
+                Mathf.Approximately(scale.z, 0f) ? 1f : 1f / scale.z);
+            zoneTransform.position = new Vector3(
+                bounds.center.x,
+                bounds.max.y + zoneHeight * 0.5f,
+                bounds.center.z);
+            zoneCollider.isTrigger = true;
+            zoneCollider.center = Vector3.zero;
+            zoneCollider.size = new Vector3(
+                bounds.size.x * passengerCheckWidth,
+                zoneHeight,
+                bounds.size.z * passengerCheckWidth);
         }
 
         private void CaptureInitialBinding()
@@ -568,16 +651,11 @@ namespace Project.PlatformPaths
 
             Vector3 target = endpoint.Segment.GetWorldEndpoint(
                 endpoint.Endpoint);
-            Vector3 previousPosition = transform.position;
-            Quaternion previousRotation = transform.rotation;
             transform.position = Vector3.MoveTowards(
                 transform.position,
                 target,
                 moveSpeed * Time.deltaTime);
-            passengerCarrier.Carry(
-                transform,
-                previousPosition,
-                previousRotation);
+            passengerCarrier.Carry(transform);
 
             return (transform.position - target).sqrMagnitude <=
                    0.000001f;
@@ -606,14 +684,9 @@ namespace Project.PlatformPaths
                 return;
             }
 
-            Vector3 previousPosition = transform.position;
-            Quaternion previousRotation = transform.rotation;
             transform.position =
                 segment.GetWorldEndpoint(endpoint);
-            passengerCarrier.Carry(
-                transform,
-                previousPosition,
-                previousRotation);
+            passengerCarrier.Carry(transform);
         }
 
         private void ReturnToInitialPosition()

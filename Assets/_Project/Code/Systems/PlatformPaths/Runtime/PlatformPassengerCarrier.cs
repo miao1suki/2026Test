@@ -16,6 +16,8 @@ namespace Project.PlatformPaths
 
         private readonly Collider[] overlapBuffer = new Collider[32];
 
+        private Transform riderAnchor;
+
         public string PassengerTag { get; set; } = "Player";
 
         public bool HasPassengers
@@ -24,7 +26,8 @@ namespace Project.PlatformPaths
             {
                 foreach (Transform passenger in passengers)
                 {
-                    if (passenger != null)
+                    PlatformRider rider = PassengerRider(passenger);
+                    if (passenger != null && rider != null && rider.IsRiding)
                     {
                         return true;
                     }
@@ -34,12 +37,67 @@ namespace Project.PlatformPaths
             }
         }
 
+        public void Capture(
+            Transform platform,
+            Collider collider)
+        {
+            if (platform == null ||
+                collider == null ||
+                !IsPassengerCollider(collider))
+            {
+                return;
+            }
+
+            Transform passenger =
+                ResolvePassengerTransform(collider);
+            if (passenger == null)
+            {
+                return;
+            }
+
+            PlatformRider rider = PassengerRider(passenger);
+            if (rider == null ||
+                rider.IsRiding ||
+                IsJumping(passenger))
+            {
+                return;
+            }
+
+            Collider platformCollider =
+                platform.GetComponent<Collider>();
+            if (platformCollider == null)
+            {
+                return;
+            }
+
+            CapsuleCollider capsule =
+                passenger.GetComponent<CapsuleCollider>();
+            Bounds passengerBounds = capsule != null
+                ? capsule.bounds
+                : collider.bounds;
+            if (passengerBounds.min.y >
+                platformCollider.bounds.max.y + 0.12f)
+            {
+                return;
+            }
+
+            float footOffset =
+                passenger.position.y - passengerBounds.min.y;
+            Vector3 targetPosition = passenger.position;
+            targetPosition.y =
+                platformCollider.bounds.max.y + footOffset + 0.02f;
+            rider.Attach(
+                EnsureRiderAnchor(platform),
+                targetPosition,
+                passenger.rotation);
+            passengers.Add(passenger);
+        }
+
         public void Refresh(
             Transform platform,
             float checkHeight,
             float checkWidth)
         {
-            detectedPassengers.Clear();
             if (platform == null)
             {
                 ReleaseAll();
@@ -55,7 +113,8 @@ namespace Project.PlatformPaths
             }
 
             Bounds bounds = platformCollider.bounds;
-            float halfHeight = Mathf.Max(0.05f, checkHeight) * 0.5f;
+            float zoneHeight = Mathf.Min(checkHeight, 0.3f);
+            float halfHeight = Mathf.Max(0.05f, zoneHeight) * 0.5f;
             Vector3 center = new Vector3(
                 bounds.center.x,
                 bounds.max.y + halfHeight * 0.5f,
@@ -72,22 +131,29 @@ namespace Project.PlatformPaths
                 ~0,
                 QueryTriggerInteraction.Collide);
 
+            detectedPassengers.Clear();
             for (int index = 0; index < hitCount; index++)
             {
                 Collider collider = overlapBuffer[index];
                 if (collider == null ||
-                    collider.transform == platform ||
-                    string.IsNullOrWhiteSpace(PassengerTag) ||
-                    !IsPassengerCollider(collider))
+                    !IsPassengerCollider(collider) ||
+                    collider.bounds.min.y >
+                    bounds.max.y + 0.12f)
                 {
                     continue;
                 }
 
                 Transform passenger =
                     ResolvePassengerTransform(collider);
-                if (passenger != null)
+                if (passenger == null)
                 {
-                    detectedPassengers.Add(passenger);
+                    continue;
+                }
+
+                detectedPassengers.Add(passenger);
+                if (!IsJumping(passenger))
+                {
+                    Capture(platform, collider);
                 }
             }
 
@@ -95,7 +161,8 @@ namespace Project.PlatformPaths
             foreach (Transform passenger in passengers)
             {
                 if (passenger == null ||
-                    !detectedPassengers.Contains(passenger))
+                    !detectedPassengers.Contains(passenger) ||
+                    IsJumping(passenger))
                 {
                     releaseBuffer.Add(passenger);
                 }
@@ -105,59 +172,61 @@ namespace Project.PlatformPaths
                  index < releaseBuffer.Count;
                  index++)
             {
-                Transform passenger = releaseBuffer[index];
-                passengers.Remove(passenger);
-            }
-
-            foreach (Transform passenger in detectedPassengers)
-            {
-                if (passenger == null ||
-                    passengers.Contains(passenger))
-                {
-                    continue;
-                }
-
-                passengers.Add(passenger);
+                Release(releaseBuffer[index]);
             }
         }
 
-        public void Carry(
-            Transform platform,
-            Vector3 previousPosition,
-            Quaternion previousRotation)
+        public void Release(Collider collider)
         {
-            Quaternion inversePreviousRotation =
-                Quaternion.Inverse(previousRotation);
-
-            foreach (Transform passenger in passengers)
+            if (collider == null)
             {
-                if (passenger == null)
-                {
-                    continue;
-                }
-
-                Vector3 localPosition = inversePreviousRotation *
-                    (passenger.position - previousPosition);
-                Quaternion localRotation = inversePreviousRotation *
-                    passenger.rotation;
-                Vector3 worldPosition = platform.position +
-                    platform.rotation * localPosition;
-                Quaternion worldRotation =
-                    platform.rotation * localRotation;
-                SetPassengerTransform(
-                    passenger,
-                    worldPosition,
-                    worldRotation);
+                return;
             }
+
+            Release(ResolvePassengerTransform(collider));
+        }
+
+        public void Release(Transform passenger)
+        {
+            if (passenger == null)
+            {
+                return;
+            }
+
+            PassengerRider(passenger)?.Detach();
+            passengers.Remove(passenger);
+        }
+
+        public void Carry(Transform platform)
+        {
+            UpdateRiderAnchor(platform);
         }
 
         public void ReleaseAll()
         {
+            foreach (Transform passenger in passengers)
+            {
+                PassengerRider(passenger)?.Detach();
+            }
+
             passengers.Clear();
+        }
+
+        private static bool IsJumping(Transform passenger)
+        {
+            Rigidbody body =
+                passenger.GetComponent<Rigidbody>();
+            return body != null &&
+                   body.linearVelocity.y > 0.05f;
         }
 
         private bool IsPassengerCollider(Collider collider)
         {
+            if (string.IsNullOrWhiteSpace(PassengerTag))
+            {
+                return false;
+            }
+
             if (collider.CompareTag(PassengerTag))
             {
                 return true;
@@ -176,30 +245,57 @@ namespace Project.PlatformPaths
                 : collider.transform.root;
         }
 
-        private static void SetPassengerTransform(
-            Transform passenger,
-            Vector3 position,
-            Quaternion rotation)
+        private static PlatformRider PassengerRider(
+            Transform passenger)
         {
-            CharacterController controller =
-                passenger.GetComponent<CharacterController>();
-            if (controller != null)
+            if (passenger == null)
             {
-                controller.enabled = false;
-                passenger.SetPositionAndRotation(position, rotation);
-                controller.enabled = true;
+                return null;
+            }
+
+            PlatformRider rider =
+                passenger.GetComponent<PlatformRider>();
+            return rider != null
+                ? rider
+                : passenger.gameObject.AddComponent<PlatformRider>();
+        }
+
+        private Transform EnsureRiderAnchor(Transform platform)
+        {
+            if (riderAnchor != null &&
+                riderAnchor.parent == platform)
+            {
+                UpdateRiderAnchor(platform);
+                return riderAnchor;
+            }
+
+            Transform existing = platform.Find("__RiderAnchor");
+            if (existing == null)
+            {
+                GameObject anchor = new GameObject("__RiderAnchor");
+                anchor.transform.SetParent(platform, false);
+                existing = anchor.transform;
+            }
+
+            riderAnchor = existing;
+            UpdateRiderAnchor(platform);
+            return riderAnchor;
+        }
+
+        private void UpdateRiderAnchor(Transform platform)
+        {
+            if (riderAnchor == null || platform == null)
+            {
                 return;
             }
 
-            Rigidbody body = passenger.GetComponent<Rigidbody>();
-            if (body != null && !body.isKinematic)
-            {
-                body.position = position;
-                body.rotation = rotation;
-                return;
-            }
-
-            passenger.SetPositionAndRotation(position, rotation);
+            Vector3 scale = platform.lossyScale;
+            riderAnchor.localPosition = Vector3.zero;
+            riderAnchor.localRotation = Quaternion.identity;
+            riderAnchor.localScale = new Vector3(
+                Mathf.Approximately(scale.x, 0f) ? 1f : 1f / scale.x,
+                Mathf.Approximately(scale.y, 0f) ? 1f : 1f / scale.y,
+                Mathf.Approximately(scale.z, 0f) ? 1f : 1f / scale.z);
         }
     }
 }

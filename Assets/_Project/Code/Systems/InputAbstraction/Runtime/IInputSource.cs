@@ -11,7 +11,9 @@ namespace Project.InputAbstraction
         InputDeviceMode ActiveDeviceMode { get; }
         bool IsActionPressed(InputActionId action);
         bool WasActionPressedThisFrame(InputActionId action);
+        bool WasActionTriggeredThisFrame(InputActionId action);
         bool WasActionReleasedThisFrame(InputActionId action);
+        InputActionTrigger GetActionTrigger(InputActionId action);
         float ReadAxis(InputActionId action);
         Vector2 ReadVector2(InputActionId action);
         Vector2 PointerPosition { get; }

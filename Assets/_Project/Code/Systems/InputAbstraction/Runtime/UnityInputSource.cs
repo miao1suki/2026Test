@@ -13,16 +13,21 @@ namespace Project.InputAbstraction
             new Dictionary<InputActionId, InputAction>();
         private readonly bool ownsAsset;
 
-        internal UnityInputSource(InputActionAsset configuredAsset)
+        internal UnityInputSource(
+            InputActionAsset configuredAsset,
+            bool cloneConfiguredAsset = true)
         {
             if (configuredAsset != null)
             {
-                asset = UnityEngine.Object.Instantiate(configuredAsset);
+                asset = cloneConfiguredAsset
+                    ? UnityEngine.Object.Instantiate(configuredAsset)
+                    : configuredAsset;
                 ownsAsset = true;
             }
             else
             {
-                asset = InputActionCatalog.CreateDefaultAsset();
+                asset = InputActionAssetFactory
+                    .CreateDefaultGameplayAsset();
                 ownsAsset = true;
             }
 
@@ -92,8 +97,38 @@ namespace Project.InputAbstraction
         public bool WasActionPressedThisFrame(InputActionId action) =>
             TryGetAction(action, out InputAction value) && value.WasPressedThisFrame();
 
+        public bool WasActionTriggeredThisFrame(InputActionId action) =>
+            TryGetAction(action, out InputAction value) && value.WasPerformedThisFrame();
+
         public bool WasActionReleasedThisFrame(InputActionId action) =>
             TryGetAction(action, out InputAction value) && value.WasReleasedThisFrame();
+
+        public InputActionTrigger GetActionTrigger(InputActionId action)
+        {
+            if (!InputActionInteractionPolicy.CanConfigureTrigger(
+                    action) ||
+                !TryGetAction(action, out InputAction value))
+            {
+                return InputActionTrigger.Press;
+            }
+
+            for (int index = 0; index < value.bindings.Count; index++)
+            {
+                InputBinding binding = value.bindings[index];
+                if (binding.isPartOfComposite ||
+                    string.IsNullOrWhiteSpace(binding.effectiveInteractions))
+                {
+                    continue;
+                }
+
+                if (binding.effectiveInteractions.Contains("Hold"))
+                {
+                    return InputActionTrigger.Hold;
+                }
+            }
+
+            return InputActionTrigger.Press;
+        }
 
         public float ReadAxis(InputActionId action)
         {
@@ -117,6 +152,7 @@ namespace Project.InputAbstraction
 
         public Vector2 PointerPosition => Mouse.current?.position.ReadValue() ?? Vector2.zero;
         public Vector2 PointerDelta => Mouse.current?.delta.ReadValue() ?? Vector2.zero;
+        internal InputActionAsset Asset => asset;
         public bool HasKeyboard => Keyboard.current != null;
         public bool HasMouse => Mouse.current != null;
         public bool HasGamepad => Gamepad.current != null;

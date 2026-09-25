@@ -29,7 +29,7 @@ namespace Project.InputAbstraction
             AddButtonAction(map, InputActionId.Crouch, "<Keyboard>/leftCtrl", "<Gamepad>/leftStickPress");
             AddButtonAction(map, InputActionId.Sprint, "<Keyboard>/leftShift", "<Gamepad>/leftShoulder");
             AddButtonAction(map, InputActionId.Attack, "<Mouse>/leftButton", "<Gamepad>/rightShoulder");
-            AddButtonAction(map, InputActionId.CameraModeSwitch, "<Keyboard>/tab", "<Gamepad>/select");
+            AddButtonAction(map, InputActionId.CameraModeSwitch, "<Keyboard>/tab", "<Keyboard>/f", "<Gamepad>/select");
             AddButtonAction(map, InputActionId.PointerPrimary, "<Mouse>/leftButton");
             AddButtonAction(map, InputActionId.PointerSecondary, "<Mouse>/rightButton");
             return asset;

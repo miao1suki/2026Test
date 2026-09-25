@@ -1,10 +1,12 @@
 using System.Collections.Generic;
 using Project.CameraModes;
 using Project.PlatformPaths;
+using Project.Player;
 using Project.RopePaths;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Playables;
 using UnityEngine.SceneManagement;
 
 public static class RopeDemoSceneBuilder
@@ -13,7 +15,6 @@ public static class RopeDemoSceneBuilder
     {
         public int Index;
         public string Name;
-        public RopeProjectionDirection Direction;
         public RopePathNetwork Network;
         public List<RopeSegment> Segments;
         public List<PlatformMove> Platforms;
@@ -104,19 +105,11 @@ public static class RopeDemoSceneBuilder
             false,
             platformMaterial,
             plateMaterial);
-        CreateTrackContent(
-            tracks[3],
-            PlatformMoveMode.Wander,
-            true,
-            true,
-            platformMaterial,
-            plateMaterial);
-
         GameObject playerObject = CreatePlayer(playerMaterial);
         CameraFollowController follow =
             CreateCamera(playerObject.transform);
-        RopeDemoPlayer player =
-            playerObject.GetComponent<RopeDemoPlayer>();
+        PlayerController player =
+            playerObject.GetComponent<PlayerController>();
         RopePathNetwork[] networks =
         {
             tracks[0].Network,
@@ -124,7 +117,19 @@ public static class RopeDemoSceneBuilder
             tracks[2].Network,
             tracks[3].Network
         };
-        player.Configure(follow, networks);
+        SerializedObject serializedPlayer =
+            new SerializedObject(player);
+        serializedPlayer.FindProperty("cameraFollow")
+            .objectReferenceValue = follow;
+        SerializedProperty serializedNetworks =
+            serializedPlayer.FindProperty("ropeNetworks");
+        serializedNetworks.arraySize = networks.Length;
+        for (int index = 0; index < networks.Length; index++)
+        {
+            serializedNetworks.GetArrayElementAtIndex(index)
+                .objectReferenceValue = networks[index];
+        }
+        serializedPlayer.ApplyModifiedPropertiesWithoutUndo();
 
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene, ScenePath);
@@ -206,7 +211,6 @@ public static class RopeDemoSceneBuilder
         {
             Index = index,
             Name = $"Track_{index + 1}",
-            Direction = direction,
             Network = network,
             Segments = segments,
             Platforms = new List<PlatformMove>(),
@@ -376,15 +380,29 @@ public static class RopeDemoSceneBuilder
         playerObject.transform.localScale =
             Vector3.one * 0.8f;
         ApplyMaterial(playerObject, material);
-        Object.DestroyImmediate(
-            playerObject.GetComponent<BoxCollider>());
-        playerObject.AddComponent<CharacterController>();
         BoxCollider detectionCollider =
-            playerObject.AddComponent<BoxCollider>();
+            playerObject.GetComponent<BoxCollider>();
         detectionCollider.isTrigger = true;
         detectionCollider.center = Vector3.zero;
         detectionCollider.size = new Vector3(1f, 2.2f, 1f);
-        playerObject.AddComponent<RopeDemoPlayer>();
+        Rigidbody body = playerObject.AddComponent<Rigidbody>();
+        body.interpolation = RigidbodyInterpolation.Interpolate;
+        body.constraints = RigidbodyConstraints.FreezeRotation;
+        body.collisionDetectionMode =
+            CollisionDetectionMode.Continuous;
+        CapsuleCollider capsule =
+            playerObject.AddComponent<CapsuleCollider>();
+        capsule.radius = 0.5f;
+        capsule.height = 1f;
+        capsule.center = Vector3.zero;
+        playerObject.AddComponent<PlayableDirector>();
+        playerObject.AddComponent<PlayerActionRunner>();
+        TimelineActorHost actorHost =
+            playerObject.AddComponent<TimelineActorHost>();
+        actorHost.attackPoint = playerObject.transform;
+        PlayerController controller =
+            playerObject.AddComponent<PlayerController>();
+        playerObject.AddComponent<PlatformRider>();
         return playerObject;
     }
 

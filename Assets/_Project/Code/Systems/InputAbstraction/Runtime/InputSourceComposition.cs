@@ -40,9 +40,22 @@ namespace Project.InputAbstraction
             hardware.WasActionPressedThisFrame(action) ||
             virtualInput.WasActionPressedThisFrame(action);
 
+        public bool WasActionTriggeredThisFrame(InputActionId action) =>
+            hardware.WasActionTriggeredThisFrame(action) ||
+            virtualInput.WasActionTriggeredThisFrame(action);
+
         public bool WasActionReleasedThisFrame(InputActionId action) =>
             hardware.WasActionReleasedThisFrame(action) ||
             virtualInput.WasActionReleasedThisFrame(action);
+
+        public InputActionTrigger GetActionTrigger(InputActionId action)
+        {
+            InputActionTrigger hardwareTrigger =
+                hardware.GetActionTrigger(action);
+            return hardwareTrigger != InputActionTrigger.Press
+                ? hardwareTrigger
+                : virtualInput.GetActionTrigger(action);
+        }
 
         public float ReadAxis(InputActionId action)
         {

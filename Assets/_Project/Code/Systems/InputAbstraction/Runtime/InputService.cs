@@ -22,6 +22,10 @@ namespace Project.InputAbstraction
         public static InputService Instance => instance;
         public IInputSource ActiveSource => externalSource ?? builtInSource;
         public InputActionAsset ConfiguredActionAsset => actionAsset;
+        public InputActionAsset RuntimeActionAsset =>
+            unitySource != null
+                ? unitySource.Asset
+                : actionAsset;
         public InputPlatformMode ConfiguredPlatformMode => platformMode;
         public InputPlatformMode ResolvedPlatformMode => InputPlatformResolver.Resolve(platformMode);
 
@@ -105,9 +109,21 @@ namespace Project.InputAbstraction
         {
             if (unitySource == null)
             {
-                unitySource = new UnityInputSource(actionAsset);
+                InputActionAsset sourceAsset =
+                    actionAsset != null
+                        ? Object.Instantiate(actionAsset)
+                        : InputActionAssetFactory
+                            .CreateDefaultGameplayAsset();
+                InputBindingOverrideStore.Apply(sourceAsset);
+                InputActionInteractionPolicy.Normalize(
+                    sourceAsset);
+                unitySource = new UnityInputSource(
+                    sourceAsset,
+                    false);
                 builtInSource = ResolvedPlatformMode == InputPlatformMode.Mobile
-                    ? new CompositeInputSource(unitySource, new VirtualInputSource())
+                    ? (IInputSource)new CompositeInputSource(
+                        unitySource,
+                        new VirtualInputSource())
                     : unitySource;
             }
         }

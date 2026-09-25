@@ -25,8 +25,14 @@ namespace Project.InputAbstraction
         public static bool WasPressedThisFrame(InputActionId action) =>
             Source.WasActionPressedThisFrame(action);
 
+        public static bool WasTriggeredThisFrame(InputActionId action) =>
+            Source.WasActionTriggeredThisFrame(action);
+
         public static bool WasReleasedThisFrame(InputActionId action) =>
             Source.WasActionReleasedThisFrame(action);
+
+        public static InputActionTrigger GetActionTrigger(InputActionId action) =>
+            Source.GetActionTrigger(action);
 
         public static float Axis(InputActionId action) => Source.ReadAxis(action);
 

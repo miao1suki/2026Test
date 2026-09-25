@@ -22,6 +22,13 @@ namespace Project.InputAbstraction
         PointerSecondary = 13,
     }
 
+    public enum InputActionTrigger
+    {
+        Press = 0,
+        Hold = 1,
+        Tap = 2,
+    }
+
     public enum InputDeviceMode
     {
         Auto = 0,
