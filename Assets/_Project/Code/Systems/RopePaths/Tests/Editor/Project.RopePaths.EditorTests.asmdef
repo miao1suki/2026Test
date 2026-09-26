@@ -4,6 +4,7 @@
   "references": [
     "Project.RopePaths.Runtime",
     "Project.PlatformPaths.Runtime",
+    "Project.LadderPaths.Runtime",
     "Project.RopePaths.Editor",
     "UnityEngine.TestRunner",
     "UnityEditor.TestRunner"

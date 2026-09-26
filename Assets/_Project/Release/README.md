@@ -1,7 +1,5 @@
 # Release content
 
-This directory contains publishable scenes and data only.
+This directory is reserved for integration-approved, publishable outputs.
 
-Files here are generated or maintained through the level-authoring release workflow. Do not use
-Release scenes as everyday editing sandboxes. Publish from the canonical data under
-`Assets/_Project/Development/Levels/<LevelId>/Authoring` after validation passes.
+Team members work in their own scenes under `Assets/_Project/Scenes/Levels`; they do not edit this directory during ordinary level work. There is currently no automatic piece/total-2D/folded-3D generation pipeline. The integrator decides later which completed scenes become build content.

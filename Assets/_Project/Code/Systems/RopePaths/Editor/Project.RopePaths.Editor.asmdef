@@ -3,7 +3,8 @@
   "rootNamespace": "Project.RopePaths.Editor",
   "references": [
     "Project.RopePaths.Runtime",
-    "Project.PlatformPaths.Runtime"
+    "Project.PlatformPaths.Runtime",
+    "Project.LadderPaths.Runtime"
   ],
   "includePlatforms": [
     "Editor"
