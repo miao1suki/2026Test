@@ -4,6 +4,7 @@ using Project.InputAbstraction;
 using Project.LadderPaths;
 using Project.PlatformPaths;
 using Project.RopePaths;
+using Project.SurfaceTiles;
 using UnityEngine;
 
 namespace Project.Player
@@ -20,7 +21,8 @@ namespace Project.Player
     [RequireComponent(typeof(PlayerActionRunner))]
     public sealed class PlayerController :
         MonoBehaviour,
-        ILadderClimbStateReceiver
+        ILadderClimbStateReceiver,
+        IProjectedPlatformActor
     {
         [Header("Players")]
         [SerializeField]
@@ -137,6 +139,13 @@ namespace Project.Player
                 : PlayerStateId.Normal;
         public RopeProjectionDirection ProjectionDirection =>
             projectionDirection;
+        public Rigidbody ProjectedPlatformBody => motor;
+        public RopeProjectionDirection ProjectedPlatformDirection =>
+            projectionDirection;
+        public bool IsProjectedPlatformModeActive =>
+            cameraMode != null &&
+            cameraMode.CurrentMode == CameraViewMode.Side2D &&
+            !cameraMode.IsTransitioning;
         public bool IsActionState =>
             stateMachine != null &&
             stateMachine.CurrentId == PlayerStateId.Action;
