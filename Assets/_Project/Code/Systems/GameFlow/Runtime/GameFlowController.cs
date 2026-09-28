@@ -67,6 +67,7 @@ namespace Project.GameFlow
             }
 
             instance = this;
+            StartupCameraGuard.CreateIfNeeded(transform);
         }
 
         private IEnumerator Start()

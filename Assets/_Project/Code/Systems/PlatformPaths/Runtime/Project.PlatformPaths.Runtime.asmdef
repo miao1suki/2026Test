@@ -3,7 +3,8 @@
   "rootNamespace": "Project.PlatformPaths",
   "references": [
     "Project.RopePaths.Runtime",
-    "Project.CameraModes.Runtime"
+    "Project.CameraModes.Runtime",
+    "Project.ProjectedPlatforms.Runtime"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

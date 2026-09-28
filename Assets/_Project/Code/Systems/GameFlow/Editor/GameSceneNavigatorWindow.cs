@@ -59,6 +59,8 @@ namespace Project.GameFlow.Editor
             currentSceneLabel.style.marginBottom = 8f;
             root.Add(currentSceneLabel);
 
+            AddPlayLaunchPanel(root);
+
             ScrollView scroll = new ScrollView();
             scroll.style.flexGrow = 1f;
             root.Add(scroll);
@@ -128,6 +130,53 @@ namespace Project.GameFlow.Editor
                 foldout.Add(empty);
             }
             parent.Add(foldout);
+        }
+
+        private void AddPlayLaunchPanel(VisualElement parent)
+        {
+            VisualElement panel = new VisualElement();
+            panel.style.backgroundColor = panelColor;
+            panel.style.paddingLeft = 10f;
+            panel.style.paddingRight = 10f;
+            panel.style.paddingTop = 8f;
+            panel.style.paddingBottom = 8f;
+            panel.style.marginBottom = 8f;
+            panel.style.borderTopLeftRadius = 6f;
+            panel.style.borderTopRightRadius = 6f;
+            panel.style.borderBottomLeftRadius = 6f;
+            panel.style.borderBottomRightRadius = 6f;
+
+            Toggle formal = new Toggle("Play 时使用正式 Bootstrap 流程")
+            {
+                value = GameFlowEditorPlayBridge.UseFormalFlow,
+            };
+            formal.style.unityFontStyleAndWeight = FontStyle.Bold;
+            panel.Add(formal);
+
+            Label help = new Label();
+            help.style.whiteSpace = WhiteSpace.Normal;
+            help.style.color = new Color(0.65f, 0.72f, 0.82f);
+            help.style.marginTop = 4f;
+            panel.Add(help);
+
+            void RefreshHelp(bool useFormal)
+            {
+                help.text = useFormal
+                    ? "正式流程：从 Bootstrap 启动，加载全部常驻系统，再进入当前打开的正式关卡；用于完整联调与打包前检查。"
+                    : "直接调试：从当前场景启动。正式关卡仍会自动补齐系统、玩家和相机；普通测试场景保持原样。";
+                panel.style.borderLeftColor = useFormal
+                    ? new Color(0.2f, 0.72f, 1f)
+                    : new Color(1f, 0.65f, 0.2f);
+                panel.style.borderLeftWidth = 4f;
+            }
+
+            formal.RegisterValueChangedCallback(evt =>
+            {
+                GameFlowEditorPlayBridge.UseFormalFlow = evt.newValue;
+                RefreshHelp(evt.newValue);
+            });
+            RefreshHelp(formal.value);
+            parent.Add(panel);
         }
 
         private VisualElement CreateSceneRow(string path)

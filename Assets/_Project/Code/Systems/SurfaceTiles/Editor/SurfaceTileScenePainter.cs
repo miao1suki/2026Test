@@ -19,6 +19,11 @@ namespace Project.SurfaceTiles.Editor
 
         private static void OnSceneGUI(SceneView sceneView)
         {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                return;
+            }
+
             if (!SurfaceTileEditorState.Painting)
             {
                 ClearHover();

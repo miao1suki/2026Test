@@ -13,6 +13,8 @@ namespace Project.GameFlow.Editor
             "2026Test.GameFlow.AutoBootstrapOnPlay";
         private const string RequestedSceneKey =
             "2026Test.GameFlow.RequestedScene";
+        private const string RequestedSceneValidKey =
+            "2026Test.GameFlow.RequestedSceneValid";
 
         static GameFlowEditorPlayBridge()
         {
@@ -24,15 +26,13 @@ namespace Project.GameFlow.Editor
         [MenuItem(MenuPath, priority = 30)]
         private static void ToggleAutoBootstrap()
         {
-            bool next = !IsEnabled;
-            EditorPrefs.SetBool(PreferenceKey, next);
-            ApplyStartScenePreference();
+            UseFormalFlow = !UseFormalFlow;
         }
 
         [MenuItem(MenuPath, true)]
         private static bool ValidateToggleAutoBootstrap()
         {
-            Menu.SetChecked(MenuPath, IsEnabled);
+            Menu.SetChecked(MenuPath, UseFormalFlow);
             return true;
         }
 
@@ -44,33 +44,44 @@ namespace Project.GameFlow.Editor
                 return;
             }
 
-            SceneAsset bootstrap = IsEnabled
+            SceneAsset bootstrap = UseFormalFlow
                 ? AssetDatabase.LoadAssetAtPath<SceneAsset>(
                     GameFlowSceneScaffolder.BootstrapPath)
                 : null;
             EditorSceneManager.playModeStartScene = bootstrap;
-            Menu.SetChecked(MenuPath, IsEnabled);
+            Menu.SetChecked(MenuPath, UseFormalFlow);
         }
 
-        private static bool IsEnabled => EditorPrefs.GetBool(PreferenceKey, true);
+        public static bool UseFormalFlow
+        {
+            get => EditorPrefs.GetBool(PreferenceKey, true);
+            set
+            {
+                EditorPrefs.SetBool(PreferenceKey, value);
+                ApplyStartScenePreference();
+            }
+        }
 
         private static void OnPlayModeStateChanged(PlayModeStateChange state)
         {
-            if (!IsEnabled)
-            {
-                return;
-            }
-
             if (state == PlayModeStateChange.ExitingEditMode)
             {
                 CaptureRequestedFlowScene();
             }
             else if (state == PlayModeStateChange.EnteredPlayMode)
             {
-                GameFlowSceneId requested = (GameFlowSceneId)SessionState.GetInt(
-                    RequestedSceneKey,
-                    (int)GameFlowSceneId.MainMenu);
-                GameFlowLaunchOverride.Set(requested);
+                if (UseFormalFlow)
+                {
+                    GameFlowSceneId requested =
+                        (GameFlowSceneId)SessionState.GetInt(
+                            RequestedSceneKey,
+                            (int)GameFlowSceneId.MainMenu);
+                    GameFlowLaunchOverride.Set(requested);
+                }
+                else
+                {
+                    StartDirectSceneDebugSupport();
+                }
             }
         }
 
@@ -85,9 +96,40 @@ namespace Project.GameFlow.Editor
                 catalog.TryGetIdForPath(activePath, out GameFlowSceneId sceneId))
             {
                 requested = sceneId;
+                SessionState.SetBool(RequestedSceneValidKey, true);
+            }
+            else
+            {
+                SessionState.SetBool(RequestedSceneValidKey, false);
             }
 
             SessionState.SetInt(RequestedSceneKey, (int)requested);
+        }
+
+        private static void StartDirectSceneDebugSupport()
+        {
+            if (!SessionState.GetBool(RequestedSceneValidKey, false) ||
+                GameFlowController.Instance != null)
+            {
+                return;
+            }
+
+            GameSceneCatalog catalog =
+                AssetDatabase.LoadAssetAtPath<GameSceneCatalog>(
+                    GameFlowSceneScaffolder.CatalogPath);
+            if (catalog == null)
+            {
+                return;
+            }
+
+            GameFlowSceneId requested =
+                (GameFlowSceneId)SessionState.GetInt(
+                    RequestedSceneKey,
+                    (int)GameFlowSceneId.MainMenu);
+            GameObject host = new GameObject("__EditorDirectSceneFlow");
+            Object.DontDestroyOnLoad(host);
+            GameFlowController controller = host.AddComponent<GameFlowController>();
+            controller.Configure(catalog, requested, true);
         }
     }
 }

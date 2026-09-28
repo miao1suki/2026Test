@@ -1,9 +1,24 @@
 using NUnit.Framework;
 using Project.ProjectedPlatforms.Editor;
+using Project.RopePaths;
 using UnityEngine;
 
 namespace Project.ProjectedPlatforms.Tests
 {
+    internal sealed class ProjectedPlatformTestActor :
+        MonoBehaviour,
+        IProjectedPlatformActor
+    {
+        public Rigidbody Body { get; set; }
+        public RopeProjectionDirection Direction { get; set; }
+        public bool Active { get; set; }
+
+        public Rigidbody ProjectedPlatformBody => Body;
+        public RopeProjectionDirection ProjectedPlatformDirection =>
+            Direction;
+        public bool IsProjectedPlatformModeActive => Active;
+    }
+
     public sealed class ProjectedOneWayPlatformTests
     {
         [Test]
@@ -35,11 +50,16 @@ namespace Project.ProjectedPlatforms.Tests
             Bounds clear = new Bounds(
                 new Vector3(0f, 3f, 0f),
                 Vector3.one);
+            Bounds standing = new Bounds(
+                new Vector3(0f, 1f, 0f),
+                Vector3.one);
 
             Assert.That(ProjectedOneWayPlatform.ShouldIgnoreCollision(
                 false, true, true, platform, overlapping, 0f, 0.08f), Is.True);
             Assert.That(ProjectedOneWayPlatform.ShouldIgnoreCollision(
                 false, true, true, platform, clear, 0f, 0.08f), Is.False);
+            Assert.That(ProjectedOneWayPlatform.ShouldIgnoreCollision(
+                false, true, true, platform, standing, 0f, 0.08f), Is.False);
         }
 
         [Test]
@@ -68,6 +88,48 @@ namespace Project.ProjectedPlatforms.Tests
             finally
             {
                 Object.DestroyImmediate(target);
+            }
+        }
+
+        [Test]
+        public void ProjectionProxy_ExtendsAlongCurrentViewDepth()
+        {
+            GameObject platformObject = GameObject.CreatePrimitive(
+                PrimitiveType.Cube);
+            GameObject actorObject = new GameObject("Actor");
+            try
+            {
+                ProjectedOneWayPlatform platform =
+                    platformObject.AddComponent<ProjectedOneWayPlatform>();
+                platform.ProjectionDepth = 40f;
+                platform.EnsureSetup();
+
+                Rigidbody body = actorObject.AddComponent<Rigidbody>();
+                body.isKinematic = true;
+                BoxCollider actorCollider =
+                    actorObject.AddComponent<BoxCollider>();
+                ProjectedPlatformTestActor actor =
+                    actorObject.AddComponent<ProjectedPlatformTestActor>();
+                actor.Body = body;
+                actor.Active = true;
+                actor.Direction = RopeProjectionDirection.Front;
+
+                platform.RegisterCandidate(actorCollider);
+                Assert.That(platform.ProjectionCollider.enabled, Is.True);
+                Assert.That(
+                    platform.ProjectionCollider.bounds.size.z,
+                    Is.GreaterThanOrEqualTo(39.9f));
+
+                actor.Direction = RopeProjectionDirection.Right;
+                platform.RegisterCandidate(actorCollider);
+                Assert.That(
+                    platform.ProjectionCollider.bounds.size.x,
+                    Is.GreaterThanOrEqualTo(39.9f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(actorObject);
+                Object.DestroyImmediate(platformObject);
             }
         }
     }

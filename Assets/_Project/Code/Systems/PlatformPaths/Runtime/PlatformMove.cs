@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Project.CameraModes;
+using Project.ProjectedPlatforms;
 using Project.RopePaths;
 using UnityEngine;
 
@@ -77,6 +78,7 @@ namespace Project.PlatformPaths
         private bool movingToButtonTarget;
         private bool waitingAtButtonTarget;
         private float buttonWaitTimer;
+        private ProjectedOneWayPlatform projectedSupport;
 
         public PlatformMoveMode MoveMode
         {
@@ -135,6 +137,9 @@ namespace Project.PlatformPaths
 
         public bool HasPlayerOnPlatform =>
             passengerCarrier.HasPassengers;
+        public RopePathNetwork Network => network;
+        public CameraModeController CameraModeController =>
+            cameraModeController;
 
         private void Reset()
         {
@@ -145,6 +150,7 @@ namespace Project.PlatformPaths
         private void Awake()
         {
             ResolveReferences();
+            EnsureProjectedSupport();
             passengerCarrier.PassengerTag = playerTag;
             EnsureRiderZone();
             CaptureInitialBinding();
@@ -161,10 +167,14 @@ namespace Project.PlatformPaths
 
         private void Update()
         {
+            SyncProjectionDirection();
             passengerCarrier.Refresh(
                 transform,
                 passengerCheckHeight,
-                passengerCheckWidth);
+                passengerCheckWidth,
+                projectedSupport != null
+                    ? projectedSupport.ActiveSupportCollider
+                    : null);
 
             if (moveMode == PlatformMoveMode.PressTrigger)
             {
@@ -262,7 +272,12 @@ namespace Project.PlatformPaths
 
         public void CapturePassenger(Collider collider)
         {
-            passengerCarrier.Capture(transform, collider);
+            passengerCarrier.Capture(
+                transform,
+                collider,
+                projectedSupport != null
+                    ? projectedSupport.ActiveSupportCollider
+                    : null);
         }
 
         public void ReleasePassenger(Transform passenger)
@@ -319,6 +334,17 @@ namespace Project.PlatformPaths
 
             riderZone.Configure(this, playerTag);
             ConfigureRiderZoneCollider();
+        }
+
+        private void EnsureProjectedSupport()
+        {
+            projectedSupport = GetComponent<ProjectedOneWayPlatform>();
+            if (projectedSupport == null && GetComponent<BoxCollider>() != null)
+            {
+                projectedSupport = gameObject.AddComponent<ProjectedOneWayPlatform>();
+            }
+
+            projectedSupport?.EnsureSetup();
         }
 
         private void ConfigureRiderZoneCollider()
@@ -602,8 +628,17 @@ namespace Project.PlatformPaths
                 return;
             }
 
+            ResolveReferences();
             RopeProjectionDirection currentDirection =
-                network.CurrentProjectionDirection;
+                cameraModeController != null &&
+                cameraModeController.TargetMode == CameraViewMode.Side2D
+                    ? RopeProjectionUtility.DirectionFromYaw(
+                        cameraModeController.TargetSide2DYaw)
+                    : network.CurrentProjectionDirection;
+            if (network.CurrentProjectionDirection != currentDirection)
+            {
+                network.CurrentProjectionDirection = currentDirection;
+            }
             if (projectionDirection == currentDirection)
             {
                 return;

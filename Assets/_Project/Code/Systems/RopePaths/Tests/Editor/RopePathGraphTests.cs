@@ -7,6 +7,20 @@ namespace Project.RopePaths.Tests
 {
     public sealed class RopePathGraphTests
     {
+        [TestCase(0f, RopeProjectionDirection.Front)]
+        [TestCase(89f, RopeProjectionDirection.Right)]
+        [TestCase(181f, RopeProjectionDirection.Back)]
+        [TestCase(-91f, RopeProjectionDirection.Left)]
+        [TestCase(360f, RopeProjectionDirection.Front)]
+        public void CameraYaw_MapsToNearestProjectionDirection(
+            float yaw,
+            RopeProjectionDirection expected)
+        {
+            Assert.That(
+                RopeProjectionUtility.DirectionFromYaw(yaw),
+                Is.EqualTo(expected));
+        }
+
         [Test]
         public void FrontProjection_ConnectsEndpointsAcrossDifferentDepths()
         {

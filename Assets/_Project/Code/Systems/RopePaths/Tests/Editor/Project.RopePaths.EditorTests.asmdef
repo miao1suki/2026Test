@@ -6,6 +6,8 @@
     "Project.PlatformPaths.Runtime",
     "Project.LadderPaths.Runtime",
     "Project.RopePaths.Editor",
+    "Project.ProjectedPlatforms.Runtime",
+    "Project.CameraModes.Runtime",
     "UnityEngine.TestRunner",
     "UnityEditor.TestRunner"
   ],

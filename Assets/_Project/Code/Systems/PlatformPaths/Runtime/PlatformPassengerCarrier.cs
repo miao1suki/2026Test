@@ -39,7 +39,8 @@ namespace Project.PlatformPaths
 
         public void Capture(
             Transform platform,
-            Collider collider)
+            Collider collider,
+            Collider supportCollider = null)
         {
             if (platform == null ||
                 collider == null ||
@@ -63,8 +64,9 @@ namespace Project.PlatformPaths
                 return;
             }
 
-            Collider platformCollider =
-                platform.GetComponent<Collider>();
+            Collider platformCollider = supportCollider != null
+                ? supportCollider
+                : platform.GetComponent<Collider>();
             if (platformCollider == null)
             {
                 return;
@@ -96,7 +98,8 @@ namespace Project.PlatformPaths
         public void Refresh(
             Transform platform,
             float checkHeight,
-            float checkWidth)
+            float checkWidth,
+            Collider supportCollider = null)
         {
             if (platform == null)
             {
@@ -104,8 +107,9 @@ namespace Project.PlatformPaths
                 return;
             }
 
-            Collider platformCollider =
-                platform.GetComponent<Collider>();
+            Collider platformCollider = supportCollider != null
+                ? supportCollider
+                : platform.GetComponent<Collider>();
             if (platformCollider == null)
             {
                 ReleaseAll();
@@ -127,7 +131,9 @@ namespace Project.PlatformPaths
                 center,
                 halfExtents,
                 overlapBuffer,
-                platform.rotation,
+                supportCollider != null
+                    ? supportCollider.transform.rotation
+                    : platform.rotation,
                 ~0,
                 QueryTriggerInteraction.Collide);
 
@@ -153,7 +159,7 @@ namespace Project.PlatformPaths
                 detectedPassengers.Add(passenger);
                 if (!IsJumping(passenger))
                 {
-                    Capture(platform, collider);
+                    Capture(platform, collider, platformCollider);
                 }
             }
 

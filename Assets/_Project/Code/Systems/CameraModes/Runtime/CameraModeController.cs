@@ -131,6 +131,9 @@ namespace Project.CameraModes
         public float Perspective3DYaw => perspective3D.yawDegrees;
         public float Perspective3DPitch => perspective3D.pitch;
         public float Side2DYaw => side2D.yawDegrees;
+        public float TargetSide2DYaw => yawTransitionActive
+            ? yawTransitionTo
+            : side2D.yawDegrees;
         public float ModeTransitionDuration => transition.duration;
         public CameraTransition ModeTransition => BuildTransition();
         public bool IsTransitioning =>

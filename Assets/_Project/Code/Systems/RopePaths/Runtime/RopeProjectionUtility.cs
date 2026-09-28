@@ -4,6 +4,18 @@ namespace Project.RopePaths
 {
     public static class RopeProjectionUtility
     {
+        public static RopeProjectionDirection DirectionFromYaw(float yawDegrees)
+        {
+            int quarterTurns = Mathf.RoundToInt(yawDegrees / 90f);
+            quarterTurns = ((quarterTurns % 4) + 4) % 4;
+            return (RopeProjectionDirection)quarterTurns;
+        }
+
+        public static float YawFromDirection(RopeProjectionDirection direction)
+        {
+            return Mathf.Repeat((int)direction * 90f + 180f, 360f) - 180f;
+        }
+
         public static Vector3 ScreenRight(RopeProjectionDirection direction)
         {
             switch (direction)

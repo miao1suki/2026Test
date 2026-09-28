@@ -56,6 +56,13 @@ namespace Project.RopePaths.Editor
 
         private static void OnSceneGUI(SceneView sceneView)
         {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                sceneView.rootVisualElement.Q<VisualElement>(RootName)
+                    ?.RemoveFromHierarchy();
+                return;
+            }
+
             VisualElement root = sceneView.rootVisualElement.Q<VisualElement>(RootName);
             if (root == null || !(root.userData is HudElements))
             {

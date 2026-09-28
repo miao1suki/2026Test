@@ -45,6 +45,13 @@ namespace Project.ProjectedPlatforms.Editor
 
         private static void OnSceneGUI(SceneView sceneView)
         {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                sceneView.rootVisualElement.Q<VisualElement>(RootName)
+                    ?.RemoveFromHierarchy();
+                return;
+            }
+
             VisualElement root = sceneView.rootVisualElement.Q<VisualElement>(RootName);
             if (root == null || !(root.userData is HudElements))
             {
@@ -89,6 +96,7 @@ namespace Project.ProjectedPlatforms.Editor
             private readonly VisualElement settings;
             private readonly EnumFlagsField directions;
             private readonly FloatField tolerance;
+            private readonly FloatField projectionDepth;
             private bool refreshing;
 
             internal HudElements(VisualElement root)
@@ -179,13 +187,29 @@ namespace Project.ProjectedPlatforms.Editor
                     Dirty(platform);
                 });
                 settings.Add(tolerance);
+                projectionDepth = new FloatField("投影纵深") { isDelayed = true };
+                projectionDepth.tooltip =
+                    "2D 模式临时碰撞沿视角深度延伸的世界长度。关卡更大时再调高。";
+                projectionDepth.RegisterValueChangedCallback(evt =>
+                {
+                    ProjectedOneWayPlatform platform = SelectedPlatform();
+                    if (refreshing || platform == null)
+                    {
+                        return;
+                    }
+
+                    Undo.RecordObject(platform, "修改平台投影纵深");
+                    platform.ProjectionDepth = evt.newValue;
+                    Dirty(platform);
+                });
+                settings.Add(projectionDepth);
                 settings.Add(Button("移除单向平台功能", () =>
                 {
                     ProjectedPlatformAuthoringService.Disable(SelectedPlatform());
                     SceneView.RepaintAll();
                 }));
                 Label help = new Label(
-                    "匹配视角下可从下方穿过并从上方落脚；3D、过渡状态和未勾选视角保持普通实体碰撞。仅需要 BoxCollider，不需要 SurfaceTileBlock。");
+                    "匹配视角下会沿视角纵深建立临时承载面，可从下方穿过并从上方落脚；3D 和未勾选视角保持普通实体碰撞。移动平台也使用同一规则。仅需要 BoxCollider，不需要 SurfaceTileBlock。");
                 help.style.whiteSpace = WhiteSpace.Normal;
                 help.style.fontSize = 9f;
                 help.style.opacity = 0.72f;
@@ -214,6 +238,7 @@ namespace Project.ProjectedPlatforms.Editor
                 {
                     directions.SetValueWithoutNotify(platform.Directions);
                     tolerance.SetValueWithoutNotify(platform.LandingTolerance);
+                    projectionDepth.SetValueWithoutNotify(platform.ProjectionDepth);
                 }
 
                 refreshing = false;

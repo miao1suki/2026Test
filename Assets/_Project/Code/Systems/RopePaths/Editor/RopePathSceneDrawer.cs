@@ -16,6 +16,11 @@ namespace Project.RopePaths.Editor
 
         private static void OnSceneGUI(SceneView sceneView)
         {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                return;
+            }
+
             RopePathNetwork network = RopePathEditorService.FindActiveNetwork();
             if (network == null)
             {

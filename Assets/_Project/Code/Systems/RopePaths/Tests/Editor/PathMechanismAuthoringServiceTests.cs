@@ -1,6 +1,9 @@
+using System.Linq;
 using NUnit.Framework;
+using Project.CameraModes;
 using Project.LadderPaths;
 using Project.PlatformPaths;
+using Project.ProjectedPlatforms;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -85,6 +88,10 @@ namespace Project.RopePaths.Editor.Tests
             Assert.That(platform.GetComponent<PlatformMove>(), Is.Not.Null);
             Assert.That(platform.GetComponent<Collider>(), Is.Not.Null);
             Assert.That(
+                platform.GetComponent<ProjectedOneWayPlatform>(),
+                Is.Not.Null,
+                "移动平台必须自动具备正交投影承载能力。");
+            Assert.That(
                 Vector3.Distance(
                     marker.transform.position,
                     platform.BoundSegment.transform.position),
@@ -108,6 +115,54 @@ namespace Project.RopePaths.Editor.Tests
             Assert.That(platform.GetComponentInParent<RopePathNetwork>(), Is.Not.Null);
             Assert.That(report.UnboundPlatforms, Is.EqualTo(1));
             Assert.That(report.Repaired, Is.GreaterThanOrEqualTo(2));
+        }
+
+        [Test]
+        public void RoyTestScene_HasUsableFourDirectionCameraAndPlatformPaths()
+        {
+            const string scenePath =
+                "Assets/GJ_Tools/TimelineTools3D/RoyRubbish/TestSceneRoy.unity";
+            Scene scene = EditorSceneManager.OpenScene(
+                scenePath,
+                OpenSceneMode.Single);
+
+            CameraModeController cameraMode = scene.GetRootGameObjects()
+                .SelectMany(root =>
+                    root.GetComponentsInChildren<CameraModeController>(true))
+                .Single();
+            CameraFollowController follow = cameraMode.GetComponent<CameraFollowController>();
+            RopePathNetwork[] networks = scene.GetRootGameObjects()
+                .SelectMany(root =>
+                    root.GetComponentsInChildren<RopePathNetwork>(true))
+                .ToArray();
+            PlatformMove[] platforms = scene.GetRootGameObjects()
+                .SelectMany(root =>
+                    root.GetComponentsInChildren<PlatformMove>(true))
+                .ToArray();
+
+            Assert.That(cameraMode.ControlledCamera, Is.Not.Null);
+            Assert.That(follow, Is.Not.Null);
+            Assert.That(follow.Target, Is.Not.Null);
+            Assert.That(networks.Length, Is.EqualTo(4));
+            Assert.That(platforms.Length, Is.EqualTo(3));
+            Assert.That(
+                platforms.All(platform => platform.Network != null),
+                Is.True,
+                "测试场景中的每个移动平台都必须绑定绳网。");
+
+            GameObject player = scene.GetRootGameObjects()
+                .SelectMany(root => root.GetComponentsInChildren<Transform>(true))
+                .Select(value => value.gameObject)
+                .First(value => value.name == "DemoPlayer");
+            MonoBehaviour playerController = player
+                .GetComponents<MonoBehaviour>()
+                .First(value => value != null &&
+                    value.GetType().FullName == "Project.Player.PlayerController");
+            SerializedProperty ropeNetworks =
+                new SerializedObject(playerController)
+                    .FindProperty("ropeNetworks");
+            Assert.That(ropeNetworks, Is.Not.Null);
+            Assert.That(ropeNetworks.arraySize, Is.EqualTo(4));
         }
     }
 }

@@ -4,7 +4,8 @@
   "references": [
     "Project.RopePaths.Runtime",
     "Project.PlatformPaths.Runtime",
-    "Project.LadderPaths.Runtime"
+    "Project.LadderPaths.Runtime",
+    "Project.ProjectedPlatforms.Runtime"
   ],
   "includePlatforms": [
     "Editor"

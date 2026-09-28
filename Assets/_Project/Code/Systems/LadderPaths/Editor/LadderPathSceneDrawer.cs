@@ -15,6 +15,11 @@ namespace Project.LadderPaths.Editor
 
         private static void OnSceneGUI(SceneView sceneView)
         {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                return;
+            }
+
             LadderPathNetwork network = LadderPathEditorService.FindActiveNetwork();
             if (network == null)
             {

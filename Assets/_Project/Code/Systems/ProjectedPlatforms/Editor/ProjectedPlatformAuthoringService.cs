@@ -32,12 +32,20 @@ namespace Project.ProjectedPlatforms.Editor
 
             Transform existingSensor =
                 target.transform.Find("__ProjectedPlatformSensor");
+            Transform existingProxy =
+                target.transform.Find("__ProjectedCollisionProxy");
             Undo.RegisterFullObjectHierarchyUndo(target, "配置正交单向平台");
             platform.EnsureSetup();
             Transform sensor = target.transform.Find("__ProjectedPlatformSensor");
             if (existingSensor == null && sensor != null)
             {
                 Undo.RegisterCreatedObjectUndo(sensor.gameObject, "创建平台检测范围");
+            }
+
+            Transform proxy = target.transform.Find("__ProjectedCollisionProxy");
+            if (existingProxy == null && proxy != null)
+            {
+                Undo.RegisterCreatedObjectUndo(proxy.gameObject, "创建正交投影碰撞");
             }
 
             EditorUtility.SetDirty(platform);
@@ -58,6 +66,12 @@ namespace Project.ProjectedPlatforms.Editor
             if (sensor != null)
             {
                 Undo.DestroyObjectImmediate(sensor.gameObject);
+            }
+
+            Transform proxy = target.transform.Find("__ProjectedCollisionProxy");
+            if (proxy != null)
+            {
+                Undo.DestroyObjectImmediate(proxy.gameObject);
             }
 
             Undo.DestroyObjectImmediate(platform);

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Project.LadderPaths;
 using Project.PlatformPaths;
+using Project.ProjectedPlatforms;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -426,13 +427,23 @@ namespace Project.RopePaths.Editor
 
         private static bool EnsurePlatformCollider(GameObject gameObject)
         {
-            if (gameObject.GetComponent<Collider>() != null)
+            bool changed = false;
+            if (gameObject.GetComponent<BoxCollider>() == null)
             {
-                return false;
+                Undo.AddComponent<BoxCollider>(gameObject);
+                changed = true;
             }
 
-            Undo.AddComponent<BoxCollider>(gameObject);
-            return true;
+            ProjectedOneWayPlatform projected =
+                gameObject.GetComponent<ProjectedOneWayPlatform>();
+            if (projected == null)
+            {
+                projected = Undo.AddComponent<ProjectedOneWayPlatform>(gameObject);
+                changed = true;
+            }
+
+            projected.EnsureSetup();
+            return changed;
         }
 
         private static List<T> FindInScene<T>(Scene scene) where T : Component

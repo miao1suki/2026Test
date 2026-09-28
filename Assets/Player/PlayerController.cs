@@ -144,8 +144,7 @@ namespace Project.Player
             projectionDirection;
         public bool IsProjectedPlatformModeActive =>
             cameraMode != null &&
-            cameraMode.CurrentMode == CameraViewMode.Side2D &&
-            !cameraMode.IsTransitioning;
+            cameraMode.TargetMode == CameraViewMode.Side2D;
         public bool IsActionState =>
             stateMachine != null &&
             stateMachine.CurrentId == PlayerStateId.Action;
@@ -180,6 +179,7 @@ namespace Project.Player
                 platformRider = GetComponent<PlatformRider>();
             }
 
+            Sync2DDirectionFromCamera();
             RefreshGroundedState();
             RefreshLadderNetwork();
             stateMachine.Tick(context);
@@ -749,6 +749,7 @@ namespace Project.Player
 
         private void Apply2DDirection()
         {
+            RefreshRopeNetworks();
             if (ropeNetworks != null)
             {
                 for (int index = 0;
@@ -772,7 +773,53 @@ namespace Project.Player
 
             cameraFollow?.SetRequestedMode(
                 CameraViewMode.Side2D,
-                DirectionToYaw(projectionDirection));
+                RopeProjectionUtility.YawFromDirection(projectionDirection));
+        }
+
+        private void Sync2DDirectionFromCamera()
+        {
+            if (cameraMode == null ||
+                cameraMode.TargetMode != CameraViewMode.Side2D)
+            {
+                return;
+            }
+
+            RopeProjectionDirection cameraDirection =
+                RopeProjectionUtility.DirectionFromYaw(
+                    cameraMode.TargetSide2DYaw);
+            if (cameraDirection == projectionDirection)
+            {
+                return;
+            }
+
+            projectionDirection = cameraDirection;
+            Apply2DDirection();
+        }
+
+        private void RefreshRopeNetworks()
+        {
+            if (ropeNetworks != null && ropeNetworks.Length > 0)
+            {
+                bool allValid = true;
+                for (int index = 0; index < ropeNetworks.Length; index++)
+                {
+                    if (ropeNetworks[index] == null ||
+                        !ropeNetworks[index].gameObject.scene.isLoaded)
+                    {
+                        allValid = false;
+                        break;
+                    }
+                }
+
+                if (allValid)
+                {
+                    return;
+                }
+            }
+
+            ropeNetworks = FindObjectsByType<RopePathNetwork>(
+                FindObjectsInactive.Exclude,
+                FindObjectsSortMode.None);
         }
 
         private void ResolveReferences()
@@ -991,12 +1038,5 @@ namespace Project.Player
             motor.linearVelocity = velocity;
         }
 
-        private static float DirectionToYaw(
-            RopeProjectionDirection direction)
-        {
-            return Mathf.Repeat(
-                (int)direction * 90f + 180f,
-                360f) - 180f;
-        }
     }
 }
