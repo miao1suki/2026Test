@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using Project.PlatformPaths;
+using Project.RopePaths.Editor;
 using UnityEngine;
 
 namespace Project.RopePaths.Tests
@@ -77,6 +78,20 @@ namespace Project.RopePaths.Tests
             Assert.That(right.Connections.Count, Is.EqualTo(0));
 
             Destroy(firstObject, secondObject);
+        }
+
+        [Test]
+        public void AllPreviewMode_ContainsEveryRuntimeProjectionDirection()
+        {
+            System.Collections.Generic.IReadOnlyList<RopeProjectionDirection>
+                directions = RopePathEditorState.PreviewDirections(
+                    RopePathPreviewMode.All);
+
+            Assert.That(directions.Count, Is.EqualTo(4));
+            Assert.That(directions, Does.Contain(RopeProjectionDirection.Front));
+            Assert.That(directions, Does.Contain(RopeProjectionDirection.Right));
+            Assert.That(directions, Does.Contain(RopeProjectionDirection.Back));
+            Assert.That(directions, Does.Contain(RopeProjectionDirection.Left));
         }
 
         [Test]

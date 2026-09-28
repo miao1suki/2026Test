@@ -122,6 +122,7 @@ namespace Project.SurfaceTiles.Editor
             private readonly Label selectionStatus;
             private readonly ObjectField paletteField;
             private readonly FloatField cellSizeField;
+            private readonly Toggle transparentBaseToggle;
             private readonly Button paintToggle;
             private readonly VisualElement tileGrid;
             private readonly Label tileHint;
@@ -222,6 +223,17 @@ namespace Project.SurfaceTiles.Editor
                     }
                 });
                 body.Add(cellSizeField);
+
+                transparentBaseToggle = new Toggle(
+                    "透明底（隐藏原模型颜色，只显示贴画）");
+                transparentBaseToggle.RegisterValueChangedCallback(evt =>
+                {
+                    if (!refreshing)
+                    {
+                        SetTransparentBase(evt.newValue);
+                    }
+                });
+                body.Add(transparentBaseToggle);
 
                 paintToggle = BigButton("开始绘制", () =>
                 {
@@ -410,6 +422,10 @@ namespace Project.SurfaceTiles.Editor
                     : new Color(0.08f, 0.35f, 0.27f, 0.8f);
                 paletteField.SetValueWithoutNotify(block != null ? block.Palette : null);
                 cellSizeField.SetValueWithoutNotify(block != null ? block.CellSize : 1f);
+                transparentBaseToggle.SetValueWithoutNotify(
+                    block != null && block.TransparentBase);
+                transparentBaseToggle.SetEnabled(
+                    block != null && block.SourceRenderer != null);
                 stackToggle.SetValueWithoutNotify(SurfaceTileEditorState.Stack);
                 offsetXField.SetValueWithoutNotify(
                     SurfaceTileEditorState.OffsetCells.x);
@@ -464,6 +480,32 @@ namespace Project.SurfaceTiles.Editor
                 EditorUtility.SetDirty(block);
                 EditorSceneManager.MarkSceneDirty(block.gameObject.scene);
                 displayedPalette = null;
+            }
+
+            private void SetTransparentBase(bool value)
+            {
+                SurfaceTileBlock block = CurrentBlock();
+                if (block == null)
+                {
+                    return;
+                }
+
+                Renderer sourceRenderer = block.SourceRenderer;
+                Undo.RecordObject(block, "切换方块贴画透明底");
+                if (sourceRenderer != null)
+                {
+                    Undo.RecordObject(sourceRenderer, "切换方块贴画透明底");
+                }
+
+                block.SetTransparentBase(value);
+                EditorUtility.SetDirty(block);
+                if (sourceRenderer != null)
+                {
+                    EditorUtility.SetDirty(sourceRenderer);
+                }
+
+                EditorSceneManager.MarkSceneDirty(block.gameObject.scene);
+                SceneView.RepaintAll();
             }
 
             private SurfaceTileBlock CurrentBlock()

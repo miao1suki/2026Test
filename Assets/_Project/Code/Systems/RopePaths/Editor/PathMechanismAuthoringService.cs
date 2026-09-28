@@ -196,20 +196,32 @@ namespace Project.RopePaths.Editor
 
         internal static void SetPreviewDirection(RopeProjectionDirection direction)
         {
+            SetPreviewMode((RopePathPreviewMode)direction);
+        }
+
+        internal static void SetPreviewMode(RopePathPreviewMode mode)
+        {
             RopePathNetwork ropeNetwork = RopePathEditorService.FindActiveNetwork();
             if (ropeNetwork != null)
             {
                 Undo.RecordObject(ropeNetwork, "修改路径预览方向");
-                ropeNetwork.EditorDirection = direction;
+                ropeNetwork.EditorPreviewAllDirections =
+                    mode == RopePathPreviewMode.All;
+                if (mode != RopePathPreviewMode.All)
+                {
+                    ropeNetwork.EditorDirection = (RopeProjectionDirection)mode;
+                }
                 EditorUtility.SetDirty(ropeNetwork);
+                EditorSceneManager.MarkSceneDirty(ropeNetwork.gameObject.scene);
             }
 
             LadderPathNetwork ladderNetwork = FindActiveLadderNetwork();
-            if (ladderNetwork != null)
+            if (ladderNetwork != null && mode != RopePathPreviewMode.All)
             {
                 Undo.RecordObject(ladderNetwork, "修改路径预览方向");
-                ladderNetwork.EditorDirection = (LadderProjectionDirection)direction;
+                ladderNetwork.EditorDirection = (LadderProjectionDirection)mode;
                 EditorUtility.SetDirty(ladderNetwork);
+                EditorSceneManager.MarkSceneDirty(ladderNetwork.gameObject.scene);
             }
 
             SceneView.RepaintAll();

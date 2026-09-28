@@ -233,10 +233,12 @@ namespace Project.RopePaths.Editor
                     text = "高级预览与吸附",
                     value = false
                 };
-                direction = new EnumField("2D 视角方向", RopeProjectionDirection.Front);
+                direction = new EnumField(
+                    "2D 接续预览",
+                    RopePathPreviewMode.Front);
                 direction.RegisterValueChangedCallback(evt =>
-                    PathMechanismAuthoringService.SetPreviewDirection(
-                        (RopeProjectionDirection)evt.newValue));
+                    PathMechanismAuthoringService.SetPreviewMode(
+                        (RopePathPreviewMode)evt.newValue));
                 advanced.Add(direction);
 
                 ropeTolerance = new FloatField("绳子接续容差") { isDelayed = true };
@@ -329,11 +331,13 @@ namespace Project.RopePaths.Editor
                                 : "2. 已选中平台：点击绑定到最近绳端"
                             : "2. 选中对象后，这里会出现续接与绑定操作";
 
-                RopeProjectionDirection currentDirection = ropeNetwork != null
-                    ? ropeNetwork.EditorDirection
+                RopePathPreviewMode currentDirection = ropeNetwork != null
+                    ? ropeNetwork.EditorPreviewAllDirections
+                        ? RopePathPreviewMode.All
+                        : (RopePathPreviewMode)ropeNetwork.EditorDirection
                     : ladderNetwork != null
-                        ? (RopeProjectionDirection)ladderNetwork.EditorDirection
-                        : RopeProjectionDirection.Front;
+                        ? (RopePathPreviewMode)ladderNetwork.EditorDirection
+                        : RopePathPreviewMode.Front;
                 direction.SetValueWithoutNotify(currentDirection);
                 ropeTolerance.SetValueWithoutNotify(
                     ropeNetwork != null ? ropeNetwork.ConnectionTolerance : 0.12f);

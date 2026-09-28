@@ -130,6 +130,28 @@ namespace Project.SurfaceTiles.Tests
         }
 
         [Test]
+        public void TransparentBase_DisablesAndRestoresOriginalRenderer()
+        {
+            GameObject target = new GameObject("TransparentBaseBlock");
+            target.AddComponent<BoxCollider>();
+            MeshRenderer sourceRenderer = target.AddComponent<MeshRenderer>();
+            SurfaceTileBlock block = target.AddComponent<SurfaceTileBlock>();
+
+            Assert.That(sourceRenderer.enabled, Is.True);
+            Assert.That(block.TransparentBase, Is.False);
+
+            block.SetTransparentBase(true);
+            Assert.That(block.TransparentBase, Is.True);
+            Assert.That(sourceRenderer.enabled, Is.False);
+
+            block.SetTransparentBase(false);
+            Assert.That(block.TransparentBase, Is.False);
+            Assert.That(sourceRenderer.enabled, Is.True);
+
+            Object.DestroyImmediate(target);
+        }
+
+        [Test]
         public void UvTransform_RotatesAndFlipsDeterministically()
         {
             Vector2 rotated = SurfaceTileMeshBuilder.TransformTileUv(

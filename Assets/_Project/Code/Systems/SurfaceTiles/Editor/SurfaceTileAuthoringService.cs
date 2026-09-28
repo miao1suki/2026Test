@@ -39,6 +39,7 @@ namespace Project.SurfaceTiles.Editor
 
             block.EnsureBlockId();
             SurfaceTileMeshBuilder.EnsureOutput(block);
+            block.EnsureBaseVisibility();
             Selection.activeGameObject = target;
             EditorSceneManager.MarkSceneDirty(target.scene);
             SceneView.lastActiveSceneView?.FrameSelected();
@@ -153,6 +154,7 @@ namespace Project.SurfaceTiles.Editor
 
                 repaired += block.RemoveOutOfBoundsTiles();
                 SurfaceTileMeshBuilder.EnsureOutput(block);
+                block.EnsureBaseVisibility();
                 if (!block.BakeUpToDate)
                 {
                     SurfaceTileMeshBuilder.RefreshPreview(block);

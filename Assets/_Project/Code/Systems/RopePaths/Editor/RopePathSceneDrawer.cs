@@ -22,14 +22,33 @@ namespace Project.RopePaths.Editor
                 return;
             }
 
-            RopeProjectionDirection direction = network.EditorDirection;
-            RopePathGraph graph = network.BuildPath(direction);
             Matrix4x4 previousMatrix = Handles.matrix;
             Color previousColor = Handles.color;
             CompareFunction previousZTest = Handles.zTest;
             Handles.zTest = CompareFunction.Always;
             DrawSegments(network, sceneView);
-            DrawConnections(graph, sceneView);
+            if (network.EditorPreviewAllDirections)
+            {
+                System.Collections.Generic.IReadOnlyList<RopeProjectionDirection>
+                    directions = RopePathEditorState.PreviewDirections(
+                        RopePathPreviewMode.All);
+                for (int index = 0; index < directions.Count; index++)
+                {
+                    DrawConnections(
+                        network.BuildPath(directions[index]),
+                        sceneView,
+                        index,
+                        true);
+                }
+            }
+            else
+            {
+                DrawConnections(
+                    network.BuildPath(network.EditorDirection),
+                    sceneView,
+                    0,
+                    false);
+            }
             DrawPlatforms(network);
             Handles.matrix = previousMatrix;
             Handles.color = previousColor;
@@ -177,9 +196,13 @@ namespace Project.RopePaths.Editor
             }
         }
 
-        private static void DrawConnections(RopePathGraph graph, SceneView sceneView)
+        private static void DrawConnections(
+            RopePathGraph graph,
+            SceneView sceneView,
+            int directionSlot,
+            bool showAll)
         {
-            Handles.color = new Color(1f, 0.9f, 0.12f, 0.98f);
+            Handles.color = ConnectionColor(graph.Direction);
             for (int index = 0; index < graph.Connections.Count; index++)
             {
                 RopePathConnection connection = graph.Connections[index];
@@ -204,8 +227,27 @@ namespace Project.RopePaths.Editor
                     : Vector3.forward;
                 Handles.DrawWireDisc(midpoint, cameraNormal, markerSize);
                 Handles.Label(
-                    midpoint + cameraNormal * markerSize * 0.1f,
-                    $"{graph.Direction} · 3D接续");
+                    midpoint +
+                    cameraNormal * markerSize * 0.1f +
+                    Vector3.up * markerSize * directionSlot * 0.8f,
+                    showAll
+                        ? $"{graph.Direction} · All预览"
+                        : $"{graph.Direction} · 3D接续");
+            }
+        }
+
+        private static Color ConnectionColor(RopeProjectionDirection direction)
+        {
+            switch (direction)
+            {
+                case RopeProjectionDirection.Right:
+                    return new Color(0.15f, 0.9f, 1f, 0.98f);
+                case RopeProjectionDirection.Back:
+                    return new Color(1f, 0.35f, 0.85f, 0.98f);
+                case RopeProjectionDirection.Left:
+                    return new Color(0.35f, 1f, 0.4f, 0.98f);
+                default:
+                    return new Color(1f, 0.9f, 0.12f, 0.98f);
             }
         }
 

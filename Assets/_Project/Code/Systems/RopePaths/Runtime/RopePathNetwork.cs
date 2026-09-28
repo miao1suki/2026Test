@@ -12,6 +12,9 @@ namespace Project.RopePaths
         [SerializeField]
         private RopeProjectionDirection editorDirection = RopeProjectionDirection.Front;
 
+        [SerializeField]
+        private bool editorPreviewAllDirections;
+
         [System.NonSerialized]
         private Dictionary<RopeProjectionDirection, RopePathGraph> cachedGraphs;
 
@@ -29,6 +32,12 @@ namespace Project.RopePaths
         {
             get => editorDirection;
             set => editorDirection = value;
+        }
+
+        public bool EditorPreviewAllDirections
+        {
+            get => editorPreviewAllDirections;
+            set => editorPreviewAllDirections = value;
         }
 
         public RopeProjectionDirection CurrentProjectionDirection

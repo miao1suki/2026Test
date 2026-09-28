@@ -18,6 +18,10 @@ namespace Project.SurfaceTiles
         [SerializeField, HideInInspector] private string blockId;
         [SerializeField, HideInInspector] private MeshFilter outputFilter;
         [SerializeField, HideInInspector] private MeshRenderer outputRenderer;
+        [SerializeField] private bool transparentBase;
+        [SerializeField, HideInInspector] private Renderer sourceRenderer;
+        [SerializeField, HideInInspector] private bool sourceRendererStateCaptured;
+        [SerializeField, HideInInspector] private bool sourceRendererWasEnabled = true;
         [SerializeField, HideInInspector] private Mesh bakedMesh;
         [SerializeField, HideInInspector] private Material bakedMaterial;
         [SerializeField, HideInInspector] private bool bakeUpToDate;
@@ -32,6 +36,8 @@ namespace Project.SurfaceTiles
         public string BlockId => blockId;
         public MeshFilter OutputFilter => outputFilter;
         public MeshRenderer OutputRenderer => outputRenderer;
+        public bool TransparentBase => transparentBase;
+        public Renderer SourceRenderer => FindSourceRenderer();
         public Mesh BakedMesh => bakedMesh;
         public Material BakedMaterial => bakedMaterial;
         public bool BakeUpToDate =>
@@ -305,6 +311,20 @@ namespace Project.SurfaceTiles
         {
             outputFilter = filter;
             outputRenderer = renderer;
+            EnsureBaseVisibility();
+        }
+
+        public void SetTransparentBase(bool value)
+        {
+            CaptureSourceRenderer();
+            transparentBase = value;
+            ApplyBaseVisibility();
+        }
+
+        public void EnsureBaseVisibility()
+        {
+            CaptureSourceRenderer();
+            ApplyBaseVisibility();
         }
 
         public void BindBake(Mesh mesh, Material material)
@@ -350,12 +370,19 @@ namespace Project.SurfaceTiles
         private void Reset()
         {
             EnsureBlockId();
+            EnsureBaseVisibility();
+        }
+
+        private void OnEnable()
+        {
+            EnsureBaseVisibility();
         }
 
         private void OnValidate()
         {
             cellSize = Mathf.Max(0.01f, cellSize);
             EnsureBlockId();
+            EnsureBaseVisibility();
         }
 
         private bool GeometryMatchesBake()
@@ -427,6 +454,64 @@ namespace Project.SurfaceTiles
                    !float.IsInfinity(offsetCells.y) &&
                    Mathf.Abs(offsetCells.x) <= MaximumOffsetCells &&
                    Mathf.Abs(offsetCells.y) <= MaximumOffsetCells;
+        }
+
+        private Renderer FindSourceRenderer()
+        {
+            if (sourceRenderer != null && sourceRenderer != outputRenderer)
+            {
+                return sourceRenderer;
+            }
+
+            Renderer candidate = GetComponent<Renderer>();
+            if (candidate != null && candidate != outputRenderer)
+            {
+                return candidate;
+            }
+
+            Renderer[] children = GetComponentsInChildren<Renderer>(true);
+            for (int index = 0; index < children.Length; index++)
+            {
+                if (children[index] != null && children[index] != outputRenderer)
+                {
+                    return children[index];
+                }
+            }
+
+            return null;
+        }
+
+        private void CaptureSourceRenderer()
+        {
+            Renderer candidate = FindSourceRenderer();
+            if (candidate == null)
+            {
+                return;
+            }
+
+            if (sourceRenderer != candidate)
+            {
+                sourceRenderer = candidate;
+                sourceRendererStateCaptured = false;
+            }
+
+            if (!sourceRendererStateCaptured)
+            {
+                sourceRendererWasEnabled = candidate.enabled;
+                sourceRendererStateCaptured = true;
+            }
+        }
+
+        private void ApplyBaseVisibility()
+        {
+            if (sourceRenderer == null || !sourceRendererStateCaptured)
+            {
+                return;
+            }
+
+            sourceRenderer.enabled = transparentBase
+                ? false
+                : sourceRendererWasEnabled;
         }
     }
 }
