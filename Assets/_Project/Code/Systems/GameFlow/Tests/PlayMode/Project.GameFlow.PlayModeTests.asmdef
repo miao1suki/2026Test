@@ -3,6 +3,7 @@
   "rootNamespace": "Project.GameFlow.Tests",
   "references": [
     "Project.GameFlow.Runtime",
+    "Project.CameraModes.Runtime",
     "Unity.UGUI"
   ],
   "includePlatforms": [],

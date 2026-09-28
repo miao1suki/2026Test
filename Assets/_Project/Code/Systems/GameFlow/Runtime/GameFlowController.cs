@@ -218,9 +218,26 @@ namespace Project.GameFlow
                 }
             }
 
+            ActivateFlowScene(targetScene);
+
             activeSceneId = target;
             IsTransitioning = false;
             ActiveSceneChanged?.Invoke(target);
+        }
+
+        private static void ActivateFlowScene(Scene scene)
+        {
+            GameObject[] roots = scene.GetRootGameObjects();
+            for (int index = 0; index < roots.Length; index++)
+            {
+                LevelSceneContext context =
+                    roots[index].GetComponentInChildren<LevelSceneContext>(true);
+                if (context != null)
+                {
+                    context.Activate();
+                    return;
+                }
+            }
         }
 
         private static GameSystemSceneRoot FindSystemRoot(Scene scene)

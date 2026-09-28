@@ -14,3 +14,4 @@ this directory for runtime assets.
 - [Orthographic one-way platforms](PROJECTED_ONE_WAY_PLATFORMS.md)
 - [Input rebinding and trigger policies](../../Assets/_Project/Code/Systems/InputRebinding/README.md)
 - [Game bootstrap, additive scenes, and shared UI](GAME_FLOW_SCENES.md)
+- [Playable prototype, scene navigation, spawns, and goals](PLAYABLE_PROTOTYPE.md)

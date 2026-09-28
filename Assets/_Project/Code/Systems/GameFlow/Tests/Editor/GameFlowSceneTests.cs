@@ -50,6 +50,27 @@ namespace Project.GameFlow.Tests
             Assert.That(valid, Is.True, report);
         }
 
+        [Test]
+        public void PlayablePrototype_HasPlayerPrefabAndLevelScenes()
+        {
+            Assert.That(
+                AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>(
+                    "Assets/_Project/Content/Player/RuntimePlayer.prefab"),
+                Is.Not.Null);
+            Assert.That(
+                AssetDatabase.LoadAssetAtPath<SceneAsset>(
+                    GameFlowSceneScaffolder.Level01Path),
+                Is.Not.Null);
+            Assert.That(
+                AssetDatabase.LoadAssetAtPath<SceneAsset>(
+                    GameFlowSceneScaffolder.Level02Path),
+                Is.Not.Null);
+            Assert.That(
+                AssetDatabase.LoadAssetAtPath<SceneAsset>(
+                    GameFlowSceneScaffolder.Level03Path),
+                Is.Not.Null);
+        }
+
         [TestCase(GameFlowSceneId.Level01, GameFlowSceneScaffolder.Level01Path)]
         [TestCase(GameFlowSceneId.Level02, GameFlowSceneScaffolder.Level02Path)]
         [TestCase(GameFlowSceneId.Level03, GameFlowSceneScaffolder.Level03Path)]

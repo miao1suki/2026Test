@@ -1,4 +1,5 @@
 using System.Collections;
+using Project.InputAbstraction;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -10,73 +11,158 @@ namespace Project.GameFlow
         [Header("Screens")]
         [SerializeField] private GameObject mainMenuScreen;
         [SerializeField] private GameObject gameplayHud;
+        [SerializeField] private GameObject pauseScreen;
         [SerializeField] private GameObject endingScreen;
         [SerializeField] private GameObject loadingScreen;
 
         [Header("Main menu")]
-        [SerializeField] private Button level01Button;
-        [SerializeField] private Button level02Button;
-        [SerializeField] private Button level03Button;
+        [SerializeField] private Button startGameButton;
+        [SerializeField] private Button mainMenuQuitButton;
 
         [Header("Gameplay")]
-        [SerializeField] private Button returnToMenuButton;
+        [SerializeField] private Text gameplaySceneLabel;
+
+        [Header("Pause")]
+        [SerializeField] private Button resumeButton;
         [SerializeField] private Button reloadLevelButton;
-        [SerializeField] private Button showEndingButton;
+        [SerializeField] private Button returnToMenuButton;
 
         [Header("Ending")]
         [SerializeField] private Button endingReturnToMenuButton;
+        [SerializeField] private Button endingQuitButton;
 
         private GameFlowController flow;
         private bool buttonsBound;
+        private bool isPaused;
+        private Coroutine screenAnimation;
 
         public int InitializationOrder => 100;
         public bool IsInitialized { get; private set; }
+        public bool IsPaused => isPaused;
+        public GameObject PauseScreen => pauseScreen;
 
         public void Configure(
             GameObject valueMainMenuScreen,
             GameObject valueGameplayHud,
+            GameObject valuePauseScreen,
             GameObject valueEndingScreen,
             GameObject valueLoadingScreen,
-            Button valueLevel01Button,
-            Button valueLevel02Button,
-            Button valueLevel03Button,
-            Button valueReturnToMenuButton,
+            Button valueStartGameButton,
+            Button valueMainMenuQuitButton,
+            Text valueGameplaySceneLabel,
+            Button valueResumeButton,
             Button valueReloadLevelButton,
-            Button valueShowEndingButton,
-            Button valueEndingReturnToMenuButton)
+            Button valueReturnToMenuButton,
+            Button valueEndingReturnToMenuButton,
+            Button valueEndingQuitButton)
         {
             mainMenuScreen = valueMainMenuScreen;
             gameplayHud = valueGameplayHud;
+            pauseScreen = valuePauseScreen;
             endingScreen = valueEndingScreen;
             loadingScreen = valueLoadingScreen;
-            level01Button = valueLevel01Button;
-            level02Button = valueLevel02Button;
-            level03Button = valueLevel03Button;
-            returnToMenuButton = valueReturnToMenuButton;
+            startGameButton = valueStartGameButton;
+            mainMenuQuitButton = valueMainMenuQuitButton;
+            gameplaySceneLabel = valueGameplaySceneLabel;
+            resumeButton = valueResumeButton;
             reloadLevelButton = valueReloadLevelButton;
-            showEndingButton = valueShowEndingButton;
+            returnToMenuButton = valueReturnToMenuButton;
             endingReturnToMenuButton = valueEndingReturnToMenuButton;
+            endingQuitButton = valueEndingQuitButton;
         }
 
         public IEnumerator Initialize()
         {
             BindButtons();
             BindFlow();
-            SetOnly(loadingScreen);
+            SetPaused(false, false);
+            SetOnly(loadingScreen, false);
             IsInitialized = true;
             yield break;
         }
 
-        public void OpenMainMenu() => Flow()?.ReturnToMainMenu();
-        public void OpenLevel01() => Flow()?.RequestTransition(GameFlowSceneId.Level01);
-        public void OpenLevel02() => Flow()?.RequestTransition(GameFlowSceneId.Level02);
-        public void OpenLevel03() => Flow()?.RequestTransition(GameFlowSceneId.Level03);
-        public void ReloadLevel() => Flow()?.ReloadActiveScene();
-        public void OpenEnding() => Flow()?.RequestTransition(GameFlowSceneId.Ending);
+        public void StartGame()
+        {
+            PlayClick();
+            SetPaused(false, false);
+            Flow()?.RequestTransition(GameFlowSceneId.Level01);
+        }
+
+        public void OpenMainMenu()
+        {
+            PlayClick();
+            SetPaused(false, false);
+            Flow()?.ReturnToMainMenu();
+        }
+
+        public void ReloadLevel()
+        {
+            PlayClick();
+            SetPaused(false, false);
+            Flow()?.ReloadActiveScene();
+        }
+
+        public void ResumeGame()
+        {
+            PlayClick();
+            SetPaused(false);
+        }
+
+        public void TogglePause()
+        {
+            SetPaused(!isPaused);
+        }
+
+        public void SetPaused(bool value, bool playSound = true)
+        {
+            if (value && !IsGameplayScene())
+            {
+                value = false;
+            }
+
+            if (isPaused == value)
+            {
+                SetActive(pauseScreen, value);
+                return;
+            }
+
+            isPaused = value;
+            Time.timeScale = value ? 0f : 1f;
+            AudioListener.pause = value;
+            SetActive(pauseScreen, value);
+            if (value)
+            {
+                AnimateScreen(pauseScreen);
+            }
+
+            Cursor.visible = value;
+            Cursor.lockState = CursorLockMode.None;
+            if (playSound)
+            {
+                GameAudioService.Instance?.PlayPause();
+            }
+        }
+
+        public void QuitGame()
+        {
+            PlayClick();
+            SetPaused(false, false);
+            Application.Quit();
+        }
 
         private void Awake()
         {
             BindButtons();
+        }
+
+        private void Update()
+        {
+            if (IsInitialized &&
+                IsGameplayScene() &&
+                GameInput.WasTriggeredThisFrame(InputActionId.Pause))
+            {
+                TogglePause();
+            }
         }
 
         private void OnEnable()
@@ -91,6 +177,7 @@ namespace Project.GameFlow
 
         private void OnDestroy()
         {
+            SetPaused(false, false);
             UnbindFlow();
             UnbindButtons();
         }
@@ -103,6 +190,19 @@ namespace Project.GameFlow
             }
 
             return flow;
+        }
+
+        private bool IsGameplayScene()
+        {
+            if (flow == null || !flow.ActiveSceneId.HasValue)
+            {
+                return false;
+            }
+
+            GameFlowSceneId id = flow.ActiveSceneId.Value;
+            return id == GameFlowSceneId.Level01 ||
+                   id == GameFlowSceneId.Level02 ||
+                   id == GameFlowSceneId.Level03;
         }
 
         private void BindFlow()
@@ -142,13 +242,13 @@ namespace Project.GameFlow
                 return;
             }
 
-            level01Button?.onClick.AddListener(OpenLevel01);
-            level02Button?.onClick.AddListener(OpenLevel02);
-            level03Button?.onClick.AddListener(OpenLevel03);
-            returnToMenuButton?.onClick.AddListener(OpenMainMenu);
+            startGameButton?.onClick.AddListener(StartGame);
+            mainMenuQuitButton?.onClick.AddListener(QuitGame);
+            resumeButton?.onClick.AddListener(ResumeGame);
             reloadLevelButton?.onClick.AddListener(ReloadLevel);
-            showEndingButton?.onClick.AddListener(OpenEnding);
+            returnToMenuButton?.onClick.AddListener(OpenMainMenu);
             endingReturnToMenuButton?.onClick.AddListener(OpenMainMenu);
+            endingQuitButton?.onClick.AddListener(QuitGame);
             buttonsBound = true;
         }
 
@@ -159,23 +259,29 @@ namespace Project.GameFlow
                 return;
             }
 
-            level01Button?.onClick.RemoveListener(OpenLevel01);
-            level02Button?.onClick.RemoveListener(OpenLevel02);
-            level03Button?.onClick.RemoveListener(OpenLevel03);
-            returnToMenuButton?.onClick.RemoveListener(OpenMainMenu);
+            startGameButton?.onClick.RemoveListener(StartGame);
+            mainMenuQuitButton?.onClick.RemoveListener(QuitGame);
+            resumeButton?.onClick.RemoveListener(ResumeGame);
             reloadLevelButton?.onClick.RemoveListener(ReloadLevel);
-            showEndingButton?.onClick.RemoveListener(OpenEnding);
+            returnToMenuButton?.onClick.RemoveListener(OpenMainMenu);
             endingReturnToMenuButton?.onClick.RemoveListener(OpenMainMenu);
+            endingQuitButton?.onClick.RemoveListener(QuitGame);
             buttonsBound = false;
         }
 
         private void OnTransitionStarted(GameFlowSceneId _)
         {
-            SetOnly(loadingScreen);
+            SetPaused(false, false);
+            SetOnly(loadingScreen, false);
         }
 
         private void OnActiveSceneChanged(GameFlowSceneId sceneId)
         {
+            SetPaused(false, false);
+            bool menuLike = sceneId == GameFlowSceneId.MainMenu ||
+                            sceneId == GameFlowSceneId.Ending;
+            Cursor.visible = menuLike;
+            Cursor.lockState = CursorLockMode.None;
             switch (sceneId)
             {
                 case GameFlowSceneId.MainMenu:
@@ -185,17 +291,60 @@ namespace Project.GameFlow
                     SetOnly(endingScreen);
                     break;
                 default:
+                    if (gameplaySceneLabel != null)
+                    {
+                        gameplaySceneLabel.text = SceneTitle(sceneId);
+                    }
                     SetOnly(gameplayHud);
                     break;
             }
         }
 
-        private void SetOnly(GameObject target)
+        private void SetOnly(GameObject target, bool animate = true)
         {
             SetActive(mainMenuScreen, target == mainMenuScreen);
             SetActive(gameplayHud, target == gameplayHud);
             SetActive(endingScreen, target == endingScreen);
             SetActive(loadingScreen, target == loadingScreen);
+            SetActive(pauseScreen, false);
+            if (animate)
+            {
+                AnimateScreen(target);
+            }
+        }
+
+        private void AnimateScreen(GameObject target)
+        {
+            if (target == null || !target.activeInHierarchy)
+            {
+                return;
+            }
+
+            if (screenAnimation != null)
+            {
+                StopCoroutine(screenAnimation);
+            }
+            screenAnimation = StartCoroutine(FadeIn(target));
+        }
+
+        private static IEnumerator FadeIn(GameObject target)
+        {
+            CanvasGroup group = target.GetComponent<CanvasGroup>();
+            if (group == null)
+            {
+                group = target.AddComponent<CanvasGroup>();
+            }
+
+            group.alpha = 0f;
+            const float duration = 0.18f;
+            float elapsed = 0f;
+            while (elapsed < duration && target.activeInHierarchy)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                group.alpha = Mathf.SmoothStep(0f, 1f, elapsed / duration);
+                yield return null;
+            }
+            group.alpha = 1f;
         }
 
         private static void SetActive(GameObject target, bool active)
@@ -204,6 +353,26 @@ namespace Project.GameFlow
             {
                 target.SetActive(active);
             }
+        }
+
+        private static string SceneTitle(GameFlowSceneId id)
+        {
+            switch (id)
+            {
+                case GameFlowSceneId.Level01:
+                    return "关卡 1";
+                case GameFlowSceneId.Level02:
+                    return "关卡 2";
+                case GameFlowSceneId.Level03:
+                    return "关卡 3";
+                default:
+                    return id.ToString();
+            }
+        }
+
+        private static void PlayClick()
+        {
+            GameAudioService.Instance?.PlayUiClick();
         }
     }
 }

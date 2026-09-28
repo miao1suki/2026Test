@@ -78,6 +78,10 @@ Assets/_Project/Scenes/
 生成器只创建缺失场景，不覆盖已经存在的关卡内容；但会把 Build Settings 修正为
 标准正式场景列表。
 
+快速打开分类场景、创建出生点和终点，请使用
+`Tools > 2026Test > 场景 > 场景导航与关卡入口`。完整试玩流程见
+[可运行游戏原型](PLAYABLE_PROTOTYPE.md)。
+
 ## 程序调用 API
 
 所有流程切换通过 `GameFlowController`，不要直接调用 `SceneManager.LoadScene`：

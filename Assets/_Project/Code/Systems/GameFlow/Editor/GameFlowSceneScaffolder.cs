@@ -205,10 +205,19 @@ namespace Project.GameFlow.Editor
             cameraObject.AddComponent<AudioListener>();
             CameraControlManager manager = cameraObject.AddComponent<CameraControlManager>();
             manager.ConfigureOutput(output);
-            cameraObject.AddComponent<CameraModeController>();
+            CameraModeController mode = cameraObject.AddComponent<CameraModeController>();
+            CameraFollowController follow =
+                cameraObject.AddComponent<CameraFollowController>();
+            follow.Configure(manager, mode, null);
+            follow.SetRequestedMode(CameraViewMode.Side2D, 0f, true);
         }
 
         private static void BuildUiScene()
+        {
+            PlayableGameUiBuilder.BuildCurrentScene();
+        }
+
+        private static void BuildLegacyUiScene()
         {
             GameSystemSceneRoot root = BuildSystemRoot(GameSystemSceneKind.UI);
 
@@ -306,15 +315,17 @@ namespace Project.GameFlow.Editor
             router.Configure(
                 mainMenu,
                 gameplay,
+                null,
                 endingScreen,
                 loading,
                 level01,
-                level02,
-                level03,
-                menu,
+                null,
+                null,
+                null,
                 reload,
-                ending,
-                endingMenu);
+                menu,
+                endingMenu,
+                null);
 
             mainMenu.SetActive(false);
             gameplay.SetActive(false);

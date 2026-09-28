@@ -132,6 +132,7 @@ GameObject:
   - component: {fileID: 289063237}
   - component: {fileID: 289063236}
   - component: {fileID: 289063235}
+  - component: {fileID: 289063239}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -147,7 +148,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 289063233}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 1, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -248,7 +249,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 2
-  m_BackGroundColor: {r: 0.06, g: 0.08, b: 0.12, a: 1}
+  m_BackGroundColor: {r: 0.08, g: 0.12, b: 0.17, a: 1}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -271,8 +272,8 @@ Camera:
     height: 1
   near clip plane: 0.3
   far clip plane: 1000
-  field of view: 60
-  orthographic: 0
+  field of view: 50
+  orthographic: 1
   orthographic size: 5
   m_Depth: 0
   m_CullingMask:
@@ -289,6 +290,31 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
+--- !u!114 &289063239
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 289063233}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d24b03ae058e484990db42f8905881f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Project.CameraModes.Runtime::Project.CameraModes.CameraFollowController
+  cameraManager: {fileID: 289063236}
+  modeController: {fileID: 289063235}
+  target: {fileID: 0}
+  fallbackMode: 0
+  requestedMode: 0
+  requestedSide2DYawDegrees: 0
+  requestOnEnable: 1
+  side2DOffset: {x: 0, y: 1, z: 0}
+  perspective3DOffset: {x: 0, y: 1, z: 0}
+  damping: 0.12
+  deadZone: {x: 0, y: 0}
+  lookAhead: {x: 0, y: 0}
+  teleportDistance: 8
 --- !u!1 &1306981617
 GameObject:
   m_ObjectHideFlags: 0
