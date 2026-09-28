@@ -115,8 +115,12 @@ namespace Project.SurfaceTiles.Tests
             Assert.That(block.Placements[0].FlipX, Is.True);
             Assert.That(mesh.vertexCount, Is.EqualTo(4));
             Assert.That(mesh.triangles.Length, Is.EqualTo(6));
-            Assert.That(mesh.bounds.size.x, Is.EqualTo(1f).Within(0.0001f));
-            Assert.That(mesh.bounds.size.y, Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(mesh.bounds.min.x, Is.LessThan(-0.5f));
+            Assert.That(mesh.bounds.max.x, Is.GreaterThan(0.5f));
+            Assert.That(mesh.bounds.min.y, Is.LessThan(-0.5f));
+            Assert.That(mesh.bounds.max.y, Is.GreaterThan(0.5f));
+            Assert.That(mesh.bounds.size.x, Is.LessThan(1.02f));
+            Assert.That(mesh.bounds.size.y, Is.LessThan(1.02f));
 
             Object.DestroyImmediate(mesh);
             Object.DestroyImmediate(target);
@@ -228,7 +232,8 @@ namespace Project.SurfaceTiles.Tests
             Assert.That(placement.OffsetCells, Is.EqualTo(new Vector2(0.1f, 0.25f)));
             Assert.That(rect, Is.EqualTo(new Rect(0.1f, 0.25f, 1f, 1f)));
             Assert.That(preview.vertexCount, Is.EqualTo(4));
-            Assert.That(preview.bounds.max.y, Is.EqualTo(0.75f).Within(0.0001f));
+            Assert.That(preview.bounds.max.y, Is.GreaterThan(0.75f));
+            Assert.That(preview.bounds.max.y, Is.LessThan(0.76f));
 
             Object.DestroyImmediate(preview);
             Object.DestroyImmediate(target);
@@ -388,7 +393,8 @@ namespace Project.SurfaceTiles.Tests
                 Assert.That(block.BakedMaterial.mainTexture, Is.Not.Null);
                 Assert.That(
                     block.BakedMesh.bounds.max.y,
-                    Is.EqualTo(0.75f).Within(0.0001f));
+                    Is.GreaterThan(0.75f));
+                Assert.That(block.BakedMesh.bounds.max.y, Is.LessThan(0.76f));
                 Assert.That(
                     AssetDatabase.IsValidFolder(generatedFolder),
                     Is.True);

@@ -21,6 +21,7 @@ namespace Project.SurfaceTiles.Editor
     internal static class SurfaceTileMeshBuilder
     {
         private const float WorldSurfaceBias = 0.003f;
+        private const float WorldSeamSafety = 0.001f;
 
         internal static void RefreshPreview(SurfaceTileBlock block)
         {
@@ -241,6 +242,27 @@ namespace Project.SurfaceTiles.Editor
             float u1 = placementRect.xMax / grid.x;
             float v0 = placementRect.yMin / grid.y;
             float v1 = placementRect.yMax / grid.y;
+            Vector2 seam = GetNormalizedSeamOverlap(
+                block,
+                face,
+                worldBias);
+            if (placementRect.xMin <= 0.0001f)
+            {
+                u0 -= seam.x;
+            }
+            if (placementRect.xMax >= grid.x - 0.0001f)
+            {
+                u1 += seam.x;
+            }
+            if (placementRect.yMin <= 0.0001f)
+            {
+                v0 -= seam.y;
+            }
+            if (placementRect.yMax >= grid.y - 0.0001f)
+            {
+                v1 += seam.y;
+            }
+
             AddQuad(
                 block,
                 face,
@@ -270,13 +292,17 @@ namespace Project.SurfaceTiles.Editor
         {
             Vector2Int grid = block.GetGridSize(face);
             Rect cellBounds = bakedFace.CellBounds;
+            Vector2 seam = GetNormalizedSeamOverlap(
+                block,
+                face,
+                WorldSurfaceBias);
             AddQuad(
                 block,
                 face,
-                cellBounds.xMin / grid.x,
-                cellBounds.yMin / grid.y,
-                cellBounds.xMax / grid.x,
-                cellBounds.yMax / grid.y,
+                cellBounds.xMin / grid.x - seam.x,
+                cellBounds.yMin / grid.y - seam.y,
+                cellBounds.xMax / grid.x + seam.x,
+                cellBounds.yMax / grid.y + seam.y,
                 bakedFace.UvRect,
                 0,
                 false,
@@ -286,6 +312,23 @@ namespace Project.SurfaceTiles.Editor
                 normals,
                 uvs,
                 triangles);
+        }
+
+        private static Vector2 GetNormalizedSeamOverlap(
+            SurfaceTileBlock block,
+            SurfaceTileFace face,
+            float worldBias)
+        {
+            SurfaceTileFaceBasis basis = SurfaceTileGeometry.GetLocalBasis(
+                block.SurfaceCollider,
+                face);
+            Vector3 scale = block.transform.lossyScale;
+            float scaleU = Vector3.Magnitude(Vector3.Scale(basis.AxisU, scale));
+            float scaleV = Vector3.Magnitude(Vector3.Scale(basis.AxisV, scale));
+            float overlap = worldBias + WorldSeamSafety;
+            return new Vector2(
+                overlap / Mathf.Max(0.0001f, basis.Width * scaleU),
+                overlap / Mathf.Max(0.0001f, basis.Height * scaleV));
         }
 
         private static void AddQuad(
