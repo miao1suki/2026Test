@@ -381,6 +381,10 @@ namespace Project.SurfaceTiles.Tests
                 Assert.That(block.BakeUpToDate, Is.True);
                 Assert.That(AssetDatabase.Contains(block.BakedMesh), Is.True);
                 Assert.That(AssetDatabase.Contains(block.BakedMaterial), Is.True);
+                Assert.That(
+                    block.BakedMesh.name,
+                    Is.EqualTo(Path.GetFileNameWithoutExtension(
+                        AssetDatabase.GetAssetPath(block.BakedMesh))));
                 Assert.That(block.BakedMaterial.mainTexture, Is.Not.Null);
                 Assert.That(
                     block.BakedMesh.bounds.max.y,
@@ -388,6 +392,9 @@ namespace Project.SurfaceTiles.Tests
                 Assert.That(
                     AssetDatabase.IsValidFolder(generatedFolder),
                     Is.True);
+                Assert.That(
+                    message,
+                    Does.Contain(Path.GetFullPath(generatedFolder)));
                 target.transform.localScale = new Vector3(2f, 1f, 1f);
                 Assert.That(block.BakeUpToDate, Is.False);
             }

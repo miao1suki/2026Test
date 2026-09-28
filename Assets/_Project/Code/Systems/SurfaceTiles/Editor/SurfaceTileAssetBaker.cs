@@ -98,6 +98,7 @@ namespace Project.SurfaceTiles.Editor
             Mesh generated = SurfaceTileMeshBuilder.BuildBakedMesh(
                 block,
                 bakedFaces);
+            generated.name = Path.GetFileNameWithoutExtension(meshPath);
             Mesh mesh = AssetDatabase.LoadAssetAtPath<Mesh>(meshPath);
             if (mesh == null)
             {
@@ -119,7 +120,10 @@ namespace Project.SurfaceTiles.Editor
             EditorUtility.SetDirty(block);
             EditorSceneManager.MarkSceneDirty(block.gameObject.scene);
             AssetDatabase.SaveAssets();
-            message = $"已保存：{texturePath}";
+            EditorGUIUtility.PingObject(importedTexture);
+            message =
+                $"已保存并在 Project 中高亮合成贴图：\n{texturePath}\n\n" +
+                $"磁盘完整位置：\n{Path.GetFullPath(folder)}";
             return true;
         }
 
