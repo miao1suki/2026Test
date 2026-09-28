@@ -127,6 +127,9 @@ namespace Project.SurfaceTiles.Editor
             private readonly Label tileHint;
             private readonly Label tileSizeStatus;
             private readonly Toggle stackToggle;
+            private readonly FloatField offsetXField;
+            private readonly FloatField offsetYField;
+            private readonly FloatField nudgeStepField;
             private readonly Label bakeStatus;
             private SurfaceTilePalette displayedPalette;
             private SurfaceTileBlock currentBlock;
@@ -286,6 +289,60 @@ namespace Project.SurfaceTiles.Editor
                 AddAnchorButton(anchorRowB, SurfaceTileAnchor.RightEdge, "贴右边");
                 body.Add(anchorRowB);
 
+                body.Add(Section("微调位置（格）"));
+                Label offsetHint = new Label(
+                    "水平 X / 垂直 Y；正 Y 可把草沿表面往上抬。允许略微伸出方块边缘。");
+                offsetHint.style.fontSize = 9f;
+                offsetHint.style.opacity = 0.72f;
+                offsetHint.style.whiteSpace = WhiteSpace.Normal;
+                body.Add(offsetHint);
+                VisualElement offsetRow = Row();
+                offsetXField = new FloatField("X") { isDelayed = false };
+                offsetXField.style.flexGrow = 1f;
+                offsetXField.RegisterValueChangedCallback(evt =>
+                {
+                    if (!refreshing)
+                    {
+                        SetOffset(new Vector2(
+                            evt.newValue,
+                            SurfaceTileEditorState.OffsetCells.y));
+                    }
+                });
+                offsetYField = new FloatField("Y") { isDelayed = false };
+                offsetYField.style.flexGrow = 1f;
+                offsetYField.RegisterValueChangedCallback(evt =>
+                {
+                    if (!refreshing)
+                    {
+                        SetOffset(new Vector2(
+                            SurfaceTileEditorState.OffsetCells.x,
+                            evt.newValue));
+                    }
+                });
+                offsetRow.Add(offsetXField);
+                offsetRow.Add(offsetYField);
+                body.Add(offsetRow);
+
+                nudgeStepField = new FloatField("按钮步长") { isDelayed = true };
+                nudgeStepField.RegisterValueChangedCallback(evt =>
+                {
+                    if (!refreshing)
+                    {
+                        SurfaceTileEditorState.OffsetNudgeStep =
+                            Mathf.Clamp(Mathf.Abs(evt.newValue), 0.001f, 1f);
+                        nudgeStepField.SetValueWithoutNotify(
+                            SurfaceTileEditorState.OffsetNudgeStep);
+                    }
+                });
+                body.Add(nudgeStepField);
+                VisualElement nudgeRow = Row();
+                nudgeRow.Add(Button("←", () => NudgeOffset(Vector2.left)));
+                nudgeRow.Add(Button("↓", () => NudgeOffset(Vector2.down)));
+                nudgeRow.Add(Button("归零", () => SetOffset(Vector2.zero)));
+                nudgeRow.Add(Button("↑", () => NudgeOffset(Vector2.up)));
+                nudgeRow.Add(Button("→", () => NudgeOffset(Vector2.right)));
+                body.Add(nudgeRow);
+
                 VisualElement transformRow = Row();
                 transformRow.Add(Button("↻ 旋转", () =>
                 {
@@ -317,6 +374,7 @@ namespace Project.SurfaceTiles.Editor
                 Label help = new Label(
                     "左键绘制 · Shift+左键擦除 · Ctrl+左键吸取 · Esc退出\n" +
                     "大图自动占多格；叠加开启时透明处保留底图。\n" +
+                    "微调正 Y 会沿当前表面向上抬，吸取时会带回微调值。\n" +
                     "合成后运行时只读 Mesh/材质/PNG，不重新计算每格贴画。");
                 help.style.fontSize = 9f;
                 help.style.opacity = 0.72f;
@@ -353,6 +411,12 @@ namespace Project.SurfaceTiles.Editor
                 paletteField.SetValueWithoutNotify(block != null ? block.Palette : null);
                 cellSizeField.SetValueWithoutNotify(block != null ? block.CellSize : 1f);
                 stackToggle.SetValueWithoutNotify(SurfaceTileEditorState.Stack);
+                offsetXField.SetValueWithoutNotify(
+                    SurfaceTileEditorState.OffsetCells.x);
+                offsetYField.SetValueWithoutNotify(
+                    SurfaceTileEditorState.OffsetCells.y);
+                nudgeStepField.SetValueWithoutNotify(
+                    SurfaceTileEditorState.OffsetNudgeStep);
                 paintToggle.SetEnabled(block != null && block.Palette != null);
                 paintToggle.text = SurfaceTileEditorState.Painting
                     ? "■ 退出绘制（Esc）"
@@ -487,7 +551,9 @@ namespace Project.SurfaceTiles.Editor
                         Mathf.CeilToInt(rotated.y - 0.0001f));
                     tileSizeStatus.text =
                         $"显示尺寸 {FormatSize(rotated.x)}×{FormatSize(rotated.y)} 格" +
-                        $" · 占用 {footprint.x}×{footprint.y} 格";
+                        $" · 占用 {footprint.x}×{footprint.y} 格" +
+                        $" · 偏移 {SurfaceTileEditorState.OffsetCells.x:0.##}, " +
+                        $"{SurfaceTileEditorState.OffsetCells.y:0.##}";
                 }
                 else
                 {
@@ -508,6 +574,27 @@ namespace Project.SurfaceTiles.Editor
                 });
                 row.Add(button);
                 anchorButtons[anchor] = button;
+            }
+
+            private void NudgeOffset(Vector2 direction)
+            {
+                SetOffset(
+                    SurfaceTileEditorState.OffsetCells +
+                    direction * SurfaceTileEditorState.OffsetNudgeStep);
+            }
+
+            private void SetOffset(Vector2 value)
+            {
+                float limit = SurfaceTileBlock.MaximumOffsetCells;
+                SurfaceTileEditorState.OffsetCells = new Vector2(
+                    Mathf.Clamp(value.x, -limit, limit),
+                    Mathf.Clamp(value.y, -limit, limit));
+                offsetXField.SetValueWithoutNotify(
+                    SurfaceTileEditorState.OffsetCells.x);
+                offsetYField.SetValueWithoutNotify(
+                    SurfaceTileEditorState.OffsetCells.y);
+                UpdateTileSelection();
+                SceneView.RepaintAll();
             }
 
             private static string FormatSize(float value)

@@ -192,6 +192,52 @@ namespace Project.SurfaceTiles.Tests
         }
 
         [Test]
+        public void PlacementOffset_ShiftsTileAndAllowsBoundedEdgeOverhang()
+        {
+            Texture2D texture = new Texture2D(2, 2);
+            Sprite sprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, 2f, 2f),
+                new Vector2(0.5f, 0.5f),
+                2f);
+            sprite.name = "Grass";
+            SurfaceTilePalette palette =
+                ScriptableObject.CreateInstance<SurfaceTilePalette>();
+            palette.ReplaceTiles(new[] { sprite });
+            GameObject target = new GameObject("OffsetBlock");
+            target.AddComponent<BoxCollider>();
+            SurfaceTileBlock block = target.AddComponent<SurfaceTileBlock>();
+            block.Configure(palette, 1f);
+
+            Assert.That(block.AddTile(
+                SurfaceTileFace.Front,
+                Vector2Int.zero,
+                palette.Tiles[0].Id,
+                0,
+                false,
+                false,
+                SurfaceTileAnchor.TopEdge,
+                true,
+                new Vector2(0.1f, 0.25f)), Is.True);
+            SurfaceTilePlacement placement = block.Placements[0];
+            Rect rect = SurfaceTileGeometry.GetPlacementRect(
+                palette.Tiles[0],
+                placement);
+            Mesh preview = SurfaceTileMeshBuilder.BuildCellMesh(block);
+
+            Assert.That(placement.OffsetCells, Is.EqualTo(new Vector2(0.1f, 0.25f)));
+            Assert.That(rect, Is.EqualTo(new Rect(0.1f, 0.25f, 1f, 1f)));
+            Assert.That(preview.vertexCount, Is.EqualTo(4));
+            Assert.That(preview.bounds.max.y, Is.EqualTo(0.75f).Within(0.0001f));
+
+            Object.DestroyImmediate(preview);
+            Object.DestroyImmediate(target);
+            Object.DestroyImmediate(palette);
+            Object.DestroyImmediate(sprite);
+            Object.DestroyImmediate(texture);
+        }
+
+        [Test]
         public void LayeredPlacements_KeepBackgroundAndEraseTopFirst()
         {
             Texture2D texture = new Texture2D(2, 2);
@@ -317,13 +363,16 @@ namespace Project.SurfaceTiles.Tests
                 target.AddComponent<BoxCollider>();
                 SurfaceTileBlock block = target.AddComponent<SurfaceTileBlock>();
                 block.Configure(palette, 1f);
-                block.SetTile(
+                Assert.That(block.AddTile(
                     SurfaceTileFace.Front,
                     Vector2Int.zero,
                     palette.Tiles[0].Id,
                     0,
                     false,
-                    false);
+                    false,
+                    SurfaceTileAnchor.TopEdge,
+                    true,
+                    new Vector2(0f, 0.25f)), Is.True);
 
                 Assert.That(
                     SurfaceTileAssetBaker.Bake(block, out string message),
@@ -333,6 +382,9 @@ namespace Project.SurfaceTiles.Tests
                 Assert.That(AssetDatabase.Contains(block.BakedMesh), Is.True);
                 Assert.That(AssetDatabase.Contains(block.BakedMaterial), Is.True);
                 Assert.That(block.BakedMaterial.mainTexture, Is.Not.Null);
+                Assert.That(
+                    block.BakedMesh.bounds.max.y,
+                    Is.EqualTo(0.75f).Within(0.0001f));
                 Assert.That(
                     AssetDatabase.IsValidFolder(generatedFolder),
                     Is.True);

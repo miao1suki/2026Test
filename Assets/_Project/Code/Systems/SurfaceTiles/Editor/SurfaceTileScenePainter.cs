@@ -158,6 +158,7 @@ namespace Project.SurfaceTiles.Editor
                     SurfaceTileEditorState.FlipX = placement.FlipX;
                     SurfaceTileEditorState.FlipY = placement.FlipY;
                     SurfaceTileEditorState.Anchor = placement.Anchor;
+                    SurfaceTileEditorState.OffsetCells = placement.OffsetCells;
                 }
 
                 return;
@@ -183,7 +184,8 @@ namespace Project.SurfaceTiles.Editor
                     SurfaceTileEditorState.FlipX,
                     SurfaceTileEditorState.FlipY,
                     SurfaceTileEditorState.Anchor,
-                    SurfaceTileEditorState.Stack);
+                    SurfaceTileEditorState.Stack,
+                    SurfaceTileEditorState.OffsetCells);
             }
 
             SurfaceTileMeshBuilder.RefreshPreview(block);
@@ -203,6 +205,7 @@ namespace Project.SurfaceTiles.Editor
                 face);
             Vector2Int grid = block.GetGridSize(face);
             Rect hoverRect = new Rect(hoverCell, Vector2.one);
+            Rect fitRect = hoverRect;
             if (previewSelectedTile && block.Palette != null &&
                 block.Palette.TryGet(
                     SurfaceTileEditorState.SelectedTileId,
@@ -212,10 +215,20 @@ namespace Project.SurfaceTiles.Editor
                     entry,
                     hoverCell,
                     SurfaceTileEditorState.QuarterTurns,
+                    SurfaceTileEditorState.Anchor,
+                    SurfaceTileEditorState.OffsetCells);
+                fitRect = SurfaceTileGeometry.GetPlacementRect(
+                    entry,
+                    hoverCell,
+                    SurfaceTileEditorState.QuarterTurns,
                     SurfaceTileEditorState.Anchor);
             }
 
-            bool valid = SurfaceTileGeometry.PlacementFitsGrid(hoverRect, grid);
+            bool valid = SurfaceTileGeometry.PlacementFitsGrid(fitRect, grid) &&
+                         Mathf.Abs(SurfaceTileEditorState.OffsetCells.x) <=
+                         SurfaceTileBlock.MaximumOffsetCells &&
+                         Mathf.Abs(SurfaceTileEditorState.OffsetCells.y) <=
+                         SurfaceTileBlock.MaximumOffsetCells;
             Matrix4x4 previous = Handles.matrix;
             Color previousColor = Handles.color;
             Handles.matrix = block.transform.localToWorldMatrix;

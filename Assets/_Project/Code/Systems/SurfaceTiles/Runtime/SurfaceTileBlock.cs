@@ -9,6 +9,8 @@ namespace Project.SurfaceTiles
     [RequireComponent(typeof(BoxCollider))]
     public sealed class SurfaceTileBlock : MonoBehaviour
     {
+        public const float MaximumOffsetCells = 2f;
+
         [SerializeField] private SurfaceTilePalette palette;
         [SerializeField, Min(0.01f)] private float cellSize = 1f;
         [SerializeField] private List<SurfaceTilePlacement> placements =
@@ -115,9 +117,45 @@ namespace Project.SurfaceTiles
             SurfaceTileAnchor anchor,
             bool stack)
         {
+            return AddTile(
+                face,
+                cell,
+                tileId,
+                quarterTurns,
+                flipX,
+                flipY,
+                anchor,
+                stack,
+                Vector2.zero);
+        }
+
+        public bool AddTile(
+            SurfaceTileFace face,
+            Vector2Int cell,
+            string tileId,
+            int quarterTurns,
+            bool flipX,
+            bool flipY,
+            SurfaceTileAnchor anchor,
+            bool stack,
+            Vector2 offsetCells)
+        {
             if (palette == null ||
                 string.IsNullOrWhiteSpace(tileId) ||
-                !palette.TryGet(tileId, out SurfaceTilePalette.Entry entry))
+                !palette.TryGet(tileId, out SurfaceTilePalette.Entry entry) ||
+                !IsValidOffset(offsetCells))
+            {
+                return false;
+            }
+
+            Rect baseRect = SurfaceTileGeometry.GetPlacementRect(
+                entry,
+                cell,
+                quarterTurns,
+                anchor);
+            if (!SurfaceTileGeometry.PlacementFitsGrid(
+                    baseRect,
+                    GetGridSize(face)))
             {
                 return false;
             }
@@ -126,13 +164,8 @@ namespace Project.SurfaceTiles
                 entry,
                 cell,
                 quarterTurns,
-                anchor);
-            if (!SurfaceTileGeometry.PlacementFitsGrid(
-                    targetRect,
-                    GetGridSize(face)))
-            {
-                return false;
-            }
+                anchor,
+                offsetCells);
 
             int nextLayer = 0;
             for (int index = placements.Count - 1; index >= 0; index--)
@@ -151,7 +184,8 @@ namespace Project.SurfaceTiles
                     candidate.QuarterTurns == Mathf.Abs(quarterTurns) % 4 &&
                     candidate.FlipX == flipX &&
                     candidate.FlipY == flipY &&
-                    candidate.Anchor == anchor)
+                    candidate.Anchor == anchor &&
+                    candidate.OffsetCells == offsetCells)
                 {
                     return true;
                 }
@@ -174,7 +208,8 @@ namespace Project.SurfaceTiles
                 flipX,
                 flipY,
                 anchor,
-                nextLayer));
+                nextLayer,
+                offsetCells));
             bakeUpToDate = false;
             return true;
         }
@@ -237,8 +272,13 @@ namespace Project.SurfaceTiles
                     !palette.TryGet(
                         placement.TileId,
                         out SurfaceTilePalette.Entry entry) ||
+                    !IsValidOffset(placement.OffsetCells) ||
                     !SurfaceTileGeometry.PlacementFitsGrid(
-                        SurfaceTileGeometry.GetPlacementRect(entry, placement),
+                        SurfaceTileGeometry.GetPlacementRect(
+                            entry,
+                            placement.Cell,
+                            placement.QuarterTurns,
+                            placement.Anchor),
                         size))
                 {
                     placements.RemoveAt(index);
@@ -377,6 +417,16 @@ namespace Project.SurfaceTiles
                    left.xMax > right.xMin + 0.0001f &&
                    left.yMin < right.yMax - 0.0001f &&
                    left.yMax > right.yMin + 0.0001f;
+        }
+
+        private static bool IsValidOffset(Vector2 offsetCells)
+        {
+            return !float.IsNaN(offsetCells.x) &&
+                   !float.IsInfinity(offsetCells.x) &&
+                   !float.IsNaN(offsetCells.y) &&
+                   !float.IsInfinity(offsetCells.y) &&
+                   Mathf.Abs(offsetCells.x) <= MaximumOffsetCells &&
+                   Mathf.Abs(offsetCells.y) <= MaximumOffsetCells;
         }
     }
 }

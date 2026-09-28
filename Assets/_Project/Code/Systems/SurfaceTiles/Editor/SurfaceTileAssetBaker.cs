@@ -93,8 +93,11 @@ namespace Project.SurfaceTiles.Editor
             material.SetFloat("_Cutoff", 0.1f);
             EditorUtility.SetDirty(material);
 
-            Dictionary<SurfaceTileFace, Rect> uvRects = layout.NormalizedRects();
-            Mesh generated = SurfaceTileMeshBuilder.BuildBakedMesh(block, uvRects);
+            Dictionary<SurfaceTileFace, SurfaceTileBakedFace> bakedFaces =
+                layout.BakedFaces();
+            Mesh generated = SurfaceTileMeshBuilder.BuildBakedMesh(
+                block,
+                bakedFaces);
             Mesh mesh = AssetDatabase.LoadAssetAtPath<Mesh>(meshPath);
             if (mesh == null)
             {
@@ -151,21 +154,30 @@ namespace Project.SurfaceTiles.Editor
                         entry.Sprite == null ||
                         !layout.FaceRects.TryGetValue(
                             placement.Face,
-                            out RectInt faceRect))
+                            out RectInt faceRect) ||
+                        !layout.FaceCellBounds.TryGetValue(
+                            placement.Face,
+                            out Rect faceBounds))
                     {
                         continue;
                     }
 
                     Vector2Int grid = block.GetGridSize(placement.Face);
-                    Rect placementRect = SurfaceTileGeometry.GetPlacementRect(
+                    Rect baseRect = SurfaceTileGeometry.GetPlacementRect(
                         entry,
-                        placement);
+                        placement.Cell,
+                        placement.QuarterTurns,
+                        placement.Anchor);
                     if (!SurfaceTileGeometry.PlacementFitsGrid(
-                            placementRect,
+                            baseRect,
                             grid))
                     {
                         continue;
                     }
+
+                    Rect placementRect = SurfaceTileGeometry.GetPlacementRect(
+                        entry,
+                        placement);
 
                     Sprite sprite = entry.Sprite;
                     material.SetTexture("_MainTex", sprite.texture);
@@ -174,13 +186,17 @@ namespace Project.SurfaceTiles.Editor
                         sprite,
                         entry.ContentRect);
                     float x0 = faceRect.x +
-                               placementRect.xMin * layout.TilePixels.x;
+                               (placementRect.xMin - faceBounds.xMin) *
+                               layout.TilePixels.x;
                     float y0 = faceRect.y +
-                               placementRect.yMin * layout.TilePixels.y;
+                               (placementRect.yMin - faceBounds.yMin) *
+                               layout.TilePixels.y;
                     float x1 = faceRect.x +
-                               placementRect.xMax * layout.TilePixels.x;
+                               (placementRect.xMax - faceBounds.xMin) *
+                               layout.TilePixels.x;
                     float y1 = faceRect.y +
-                               placementRect.yMax * layout.TilePixels.y;
+                               (placementRect.yMax - faceBounds.yMin) *
+                               layout.TilePixels.y;
                     Vector2[] logical =
                     {
                         new Vector2(0f, 0f),
@@ -234,45 +250,91 @@ namespace Project.SurfaceTiles.Editor
             SurfaceTileBlock block,
             Vector2Int tilePixels)
         {
-            Vector2Int front = block.GetGridSize(SurfaceTileFace.Front);
-            Vector2Int right = block.GetGridSize(SurfaceTileFace.Right);
-            Vector2Int top = block.GetGridSize(SurfaceTileFace.Top);
-            int sideWidthCells = front.x * 2 + right.x * 2;
-            int topWidthCells = top.x * 2;
-            int widthCells = Mathf.Max(sideWidthCells, topWidthCells);
-            int sideHeightCells = front.y;
-            int topHeightCells = top.y;
+            Rect[] bounds = new Rect[6];
+            Vector2Int[] pixelSizes = new Vector2Int[6];
+            for (int index = 0; index < 6; index++)
+            {
+                SurfaceTileFace face = (SurfaceTileFace)index;
+                bounds[index] = GetFaceCellBounds(block, face, tilePixels);
+                pixelSizes[index] = new Vector2Int(
+                    Mathf.Max(1, Mathf.RoundToInt(
+                        bounds[index].width * tilePixels.x)),
+                    Mathf.Max(1, Mathf.RoundToInt(
+                        bounds[index].height * tilePixels.y)));
+            }
+
+            int firstRowWidth = pixelSizes[0].x + pixelSizes[1].x +
+                                pixelSizes[2].x;
+            int secondRowWidth = pixelSizes[3].x + pixelSizes[4].x +
+                                 pixelSizes[5].x;
+            int firstRowHeight = Mathf.Max(
+                pixelSizes[0].y,
+                Mathf.Max(pixelSizes[1].y, pixelSizes[2].y));
+            int secondRowHeight = Mathf.Max(
+                pixelSizes[3].y,
+                Mathf.Max(pixelSizes[4].y, pixelSizes[5].y));
             BlockLayout layout = new BlockLayout(
-                widthCells * tilePixels.x,
-                (sideHeightCells + topHeightCells) * tilePixels.y,
+                Mathf.Max(firstRowWidth, secondRowWidth),
+                firstRowHeight + secondRowHeight,
                 tilePixels);
             int x = 0;
-            AddFace(layout, SurfaceTileFace.Front, block, ref x, 0);
-            AddFace(layout, SurfaceTileFace.Right, block, ref x, 0);
-            AddFace(layout, SurfaceTileFace.Back, block, ref x, 0);
-            AddFace(layout, SurfaceTileFace.Left, block, ref x, 0);
-            x = 0;
-            int upperY = sideHeightCells * tilePixels.y;
-            AddFace(layout, SurfaceTileFace.Top, block, ref x, upperY);
-            AddFace(layout, SurfaceTileFace.Bottom, block, ref x, upperY);
+            for (int index = 0; index < 6; index++)
+            {
+                if (index == 3)
+                {
+                    x = 0;
+                }
+
+                int y = index < 3 ? 0 : firstRowHeight;
+                SurfaceTileFace face = (SurfaceTileFace)index;
+                layout.FaceRects[face] = new RectInt(
+                    x,
+                    y,
+                    pixelSizes[index].x,
+                    pixelSizes[index].y);
+                layout.FaceCellBounds[face] = bounds[index];
+                x += pixelSizes[index].x;
+            }
+
             return layout;
         }
 
-        private static void AddFace(
-            BlockLayout layout,
-            SurfaceTileFace face,
+        private static Rect GetFaceCellBounds(
             SurfaceTileBlock block,
-            ref int x,
-            int y)
+            SurfaceTileFace face,
+            Vector2Int tilePixels)
         {
             Vector2Int grid = block.GetGridSize(face);
-            RectInt rect = new RectInt(
-                x,
-                y,
-                grid.x * layout.TilePixels.x,
-                grid.y * layout.TilePixels.y);
-            layout.FaceRects[face] = rect;
-            x += rect.width;
+            Rect bounds = new Rect(0f, 0f, grid.x, grid.y);
+            IReadOnlyList<SurfaceTilePlacement> placements = block.Placements;
+            for (int index = 0; index < placements.Count; index++)
+            {
+                SurfaceTilePlacement placement = placements[index];
+                if (placement.Face != face ||
+                    !block.Palette.TryGet(
+                        placement.TileId,
+                        out SurfaceTilePalette.Entry entry))
+                {
+                    continue;
+                }
+
+                Rect placementRect = SurfaceTileGeometry.GetPlacementRect(
+                    entry,
+                    placement);
+                float minX = Mathf.Min(bounds.xMin, placementRect.xMin);
+                float minY = Mathf.Min(bounds.yMin, placementRect.yMin);
+                float maxX = Mathf.Max(bounds.xMax, placementRect.xMax);
+                float maxY = Mathf.Max(bounds.yMax, placementRect.yMax);
+                bounds = Rect.MinMaxRect(minX, minY, maxX, maxY);
+            }
+
+            float xStep = 1f / Mathf.Max(1, tilePixels.x);
+            float yStep = 1f / Mathf.Max(1, tilePixels.y);
+            return Rect.MinMaxRect(
+                Mathf.Floor(bounds.xMin / xStep) * xStep,
+                Mathf.Floor(bounds.yMin / yStep) * yStep,
+                Mathf.Ceil(bounds.xMax / xStep) * xStep,
+                Mathf.Ceil(bounds.yMax / yStep) * yStep);
         }
 
         private static void EnsureUniqueId(SurfaceTileBlock block)
@@ -354,19 +416,24 @@ namespace Project.SurfaceTiles.Editor
             internal Vector2Int TilePixels { get; }
             internal Dictionary<SurfaceTileFace, RectInt> FaceRects { get; } =
                 new Dictionary<SurfaceTileFace, RectInt>();
+            internal Dictionary<SurfaceTileFace, Rect> FaceCellBounds { get; } =
+                new Dictionary<SurfaceTileFace, Rect>();
 
-            internal Dictionary<SurfaceTileFace, Rect> NormalizedRects()
+            internal Dictionary<SurfaceTileFace, SurfaceTileBakedFace> BakedFaces()
             {
-                Dictionary<SurfaceTileFace, Rect> result =
-                    new Dictionary<SurfaceTileFace, Rect>();
+                Dictionary<SurfaceTileFace, SurfaceTileBakedFace> result =
+                    new Dictionary<SurfaceTileFace, SurfaceTileBakedFace>();
                 foreach (KeyValuePair<SurfaceTileFace, RectInt> pair in FaceRects)
                 {
                     RectInt rect = pair.Value;
-                    result[pair.Key] = new Rect(
+                    Rect uvRect = new Rect(
                         (float)rect.x / Width,
                         (float)rect.y / Height,
                         (float)rect.width / Width,
                         (float)rect.height / Height);
+                    result[pair.Key] = new SurfaceTileBakedFace(
+                        uvRect,
+                        FaceCellBounds[pair.Key]);
                 }
                 return result;
             }

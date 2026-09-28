@@ -6,6 +6,18 @@ using UnityEngine.Rendering;
 
 namespace Project.SurfaceTiles.Editor
 {
+    internal readonly struct SurfaceTileBakedFace
+    {
+        internal SurfaceTileBakedFace(Rect uvRect, Rect cellBounds)
+        {
+            UvRect = uvRect;
+            CellBounds = cellBounds;
+        }
+
+        internal Rect UvRect { get; }
+        internal Rect CellBounds { get; }
+    }
+
     internal static class SurfaceTileMeshBuilder
     {
         private const float WorldSurfaceBias = 0.003f;
@@ -62,13 +74,19 @@ namespace Project.SurfaceTiles.Editor
                 }
 
                 Vector2Int grid = block.GetGridSize(placement.Face);
-                Rect placementRect = SurfaceTileGeometry.GetPlacementRect(
+                Rect baseRect = SurfaceTileGeometry.GetPlacementRect(
                     tile,
-                    placement);
-                if (!SurfaceTileGeometry.PlacementFitsGrid(placementRect, grid))
+                    placement.Cell,
+                    placement.QuarterTurns,
+                    placement.Anchor);
+                if (!SurfaceTileGeometry.PlacementFitsGrid(baseRect, grid))
                 {
                     continue;
                 }
+
+                Rect placementRect = SurfaceTileGeometry.GetPlacementRect(
+                    tile,
+                    placement);
 
                 Rect spriteUv = ContentUv(tile.Sprite, tile.ContentRect);
                 AddPlacementQuad(
@@ -92,7 +110,7 @@ namespace Project.SurfaceTiles.Editor
 
         internal static Mesh BuildBakedMesh(
             SurfaceTileBlock block,
-            IReadOnlyDictionary<SurfaceTileFace, Rect> faceUvs)
+            IReadOnlyDictionary<SurfaceTileFace, SurfaceTileBakedFace> faces)
         {
             List<Vector3> vertices = new List<Vector3>();
             List<Vector3> normals = new List<Vector3>();
@@ -101,7 +119,7 @@ namespace Project.SurfaceTiles.Editor
             for (int faceIndex = 0; faceIndex < 6; faceIndex++)
             {
                 SurfaceTileFace face = (SurfaceTileFace)faceIndex;
-                if (!faceUvs.TryGetValue(face, out Rect uvRect) ||
+                if (!faces.TryGetValue(face, out SurfaceTileBakedFace bakedFace) ||
                     !HasTiles(block, face))
                 {
                     continue;
@@ -110,7 +128,7 @@ namespace Project.SurfaceTiles.Editor
                 AddFaceQuad(
                     block,
                     face,
-                    uvRect,
+                    bakedFace,
                     vertices,
                     normals,
                     uvs,
@@ -244,20 +262,22 @@ namespace Project.SurfaceTiles.Editor
         private static void AddFaceQuad(
             SurfaceTileBlock block,
             SurfaceTileFace face,
-            Rect uvRect,
+            SurfaceTileBakedFace bakedFace,
             List<Vector3> vertices,
             List<Vector3> normals,
             List<Vector2> uvs,
             List<int> triangles)
         {
+            Vector2Int grid = block.GetGridSize(face);
+            Rect cellBounds = bakedFace.CellBounds;
             AddQuad(
                 block,
                 face,
-                0f,
-                0f,
-                1f,
-                1f,
-                uvRect,
+                cellBounds.xMin / grid.x,
+                cellBounds.yMin / grid.y,
+                cellBounds.xMax / grid.x,
+                cellBounds.yMax / grid.y,
+                bakedFace.UvRect,
                 0,
                 false,
                 false,

@@ -34,6 +34,7 @@ namespace Project.SurfaceTiles
         [SerializeField] private bool flipY;
         [SerializeField] private SurfaceTileAnchor anchor;
         [SerializeField] private int layer;
+        [SerializeField] private Vector2 offsetCells;
 
         public SurfaceTileFace Face => face;
         public Vector2Int Cell => cell;
@@ -43,6 +44,7 @@ namespace Project.SurfaceTiles
         public bool FlipY => flipY;
         public SurfaceTileAnchor Anchor => anchor;
         public int Layer => layer;
+        public Vector2 OffsetCells => offsetCells;
 
         public SurfaceTilePlacement(
             SurfaceTileFace valueFace,
@@ -59,7 +61,8 @@ namespace Project.SurfaceTiles
                 valueFlipX,
                 valueFlipY,
                 SurfaceTileAnchor.BottomLeft,
-                0)
+                0,
+                Vector2.zero)
         {
         }
 
@@ -72,6 +75,29 @@ namespace Project.SurfaceTiles
             bool valueFlipY,
             SurfaceTileAnchor valueAnchor,
             int valueLayer)
+            : this(
+                valueFace,
+                valueCell,
+                valueTileId,
+                valueQuarterTurns,
+                valueFlipX,
+                valueFlipY,
+                valueAnchor,
+                valueLayer,
+                Vector2.zero)
+        {
+        }
+
+        public SurfaceTilePlacement(
+            SurfaceTileFace valueFace,
+            Vector2Int valueCell,
+            string valueTileId,
+            int valueQuarterTurns,
+            bool valueFlipX,
+            bool valueFlipY,
+            SurfaceTileAnchor valueAnchor,
+            int valueLayer,
+            Vector2 valueOffsetCells)
         {
             face = valueFace;
             cell = valueCell;
@@ -81,6 +107,7 @@ namespace Project.SurfaceTiles
             flipY = valueFlipY;
             anchor = valueAnchor;
             layer = Mathf.Max(0, valueLayer);
+            offsetCells = valueOffsetCells;
         }
 
         public void SetTile(
@@ -103,6 +130,25 @@ namespace Project.SurfaceTiles
             SurfaceTileAnchor valueAnchor,
             int valueLayer)
         {
+            SetPlacement(
+                valueTileId,
+                valueQuarterTurns,
+                valueFlipX,
+                valueFlipY,
+                valueAnchor,
+                valueLayer,
+                Vector2.zero);
+        }
+
+        public void SetPlacement(
+            string valueTileId,
+            int valueQuarterTurns,
+            bool valueFlipX,
+            bool valueFlipY,
+            SurfaceTileAnchor valueAnchor,
+            int valueLayer,
+            Vector2 valueOffsetCells)
+        {
             SetTile(
                 valueTileId,
                 valueQuarterTurns,
@@ -110,6 +156,7 @@ namespace Project.SurfaceTiles
                 valueFlipY);
             anchor = valueAnchor;
             layer = Mathf.Max(0, valueLayer);
+            offsetCells = valueOffsetCells;
         }
     }
 
@@ -165,6 +212,21 @@ namespace Project.SurfaceTiles
             int quarterTurns,
             SurfaceTileAnchor anchor)
         {
+            return GetPlacementRect(
+                entry,
+                cell,
+                quarterTurns,
+                anchor,
+                Vector2.zero);
+        }
+
+        public static Rect GetPlacementRect(
+            SurfaceTilePalette.Entry entry,
+            Vector2Int cell,
+            int quarterTurns,
+            SurfaceTileAnchor anchor,
+            Vector2 offsetCells)
+        {
             Vector2 size = GetRotatedSize(entry, quarterTurns);
             Vector2 origin;
             switch (anchor)
@@ -199,7 +261,7 @@ namespace Project.SurfaceTiles
                     break;
             }
 
-            return new Rect(origin, size);
+            return new Rect(origin + offsetCells, size);
         }
 
         public static Rect GetPlacementRect(
@@ -212,7 +274,8 @@ namespace Project.SurfaceTiles
                     entry,
                     placement.Cell,
                     placement.QuarterTurns,
-                    placement.Anchor);
+                    placement.Anchor,
+                    placement.OffsetCells);
         }
 
         public static bool PlacementCoversCell(Rect placementRect, Vector2Int cell)
