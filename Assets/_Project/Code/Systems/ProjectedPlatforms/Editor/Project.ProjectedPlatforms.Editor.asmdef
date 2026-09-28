@@ -1,8 +1,12 @@
 {
-  "name": "Project.SurfaceTiles.Runtime",
-  "rootNamespace": "Project.SurfaceTiles",
-  "references": [],
-  "includePlatforms": [],
+  "name": "Project.ProjectedPlatforms.Editor",
+  "rootNamespace": "Project.ProjectedPlatforms.Editor",
+  "references": [
+    "Project.ProjectedPlatforms.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
   "overrideReferences": false,

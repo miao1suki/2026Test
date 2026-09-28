@@ -142,42 +142,6 @@ namespace Project.SurfaceTiles.Tests
         }
 
         [Test]
-        public void OneWayPlatform_IgnoresBelowAndAscendingButLandsFromAbove()
-        {
-            Bounds platform = new Bounds(Vector3.zero, new Vector3(4f, 1f, 2f));
-            Bounds below = new Bounds(
-                new Vector3(0f, -1f, 0f),
-                new Vector3(1f, 1f, 1f));
-            Bounds above = new Bounds(
-                new Vector3(0f, 1.1f, 0f),
-                new Vector3(1f, 1f, 1f));
-
-            Assert.That(ProjectedOneWayPlatform.ShouldIgnoreCollision(
-                true, true, false, platform, below, -1f, 0.08f), Is.True);
-            Assert.That(ProjectedOneWayPlatform.ShouldIgnoreCollision(
-                true, true, false, platform, above, -1f, 0.08f), Is.False);
-            Assert.That(ProjectedOneWayPlatform.ShouldIgnoreCollision(
-                true, true, false, platform, above, 2f, 0.08f), Is.True);
-        }
-
-        [Test]
-        public void OneWayPlatform_ReleasesSafelyAfterLeavingTwoDMode()
-        {
-            Bounds platform = new Bounds(Vector3.zero, new Vector3(4f, 1f, 2f));
-            Bounds overlapping = new Bounds(
-                new Vector3(0f, 0.25f, 0f),
-                Vector3.one);
-            Bounds clear = new Bounds(
-                new Vector3(0f, 3f, 0f),
-                Vector3.one);
-
-            Assert.That(ProjectedOneWayPlatform.ShouldIgnoreCollision(
-                false, true, true, platform, overlapping, 0f, 0.08f), Is.True);
-            Assert.That(ProjectedOneWayPlatform.ShouldIgnoreCollision(
-                false, true, true, platform, clear, 0f, 0.08f), Is.False);
-        }
-
-        [Test]
         public void Bake_CreatesPersistentTextureMaterialAndMesh()
         {
             const string temporaryRoot = "Assets/__SurfaceTileBakeTest";
@@ -297,6 +261,44 @@ namespace Project.SurfaceTiles.Tests
             Assert.That(regions.Count, Is.EqualTo(2));
             Assert.That(regions, Does.Contain(new RectInt(1, 1, 2, 2)));
             Assert.That(regions, Does.Contain(new RectInt(8, 4, 3, 2)));
+            Object.DestroyImmediate(source);
+        }
+
+        [Test]
+        public void IrregularImporter_CanGroupPiecesIntoOneCompleteBlock()
+        {
+            Texture2D source = new Texture2D(12, 6, TextureFormat.RGBA32, false);
+            Color32[] pixels = new Color32[12 * 6];
+            PaintRect(pixels, 12, new RectInt(1, 2, 2, 2), Color.white);
+            PaintRect(pixels, 12, new RectInt(5, 2, 2, 2), Color.white);
+            source.SetPixels32(pixels);
+            source.Apply();
+
+            System.Collections.Generic.List<RectInt> completeOnly =
+                SurfaceTileSheetGenerator.DetectCompleteRegionsWithOptionalPieces(
+                    source,
+                    0,
+                    6,
+                    1,
+                    3,
+                    0,
+                    false);
+            System.Collections.Generic.List<RectInt> completeAndPieces =
+                SurfaceTileSheetGenerator.DetectCompleteRegionsWithOptionalPieces(
+                    source,
+                    0,
+                    6,
+                    1,
+                    3,
+                    0,
+                    true);
+
+            Assert.That(completeOnly.Count, Is.EqualTo(1));
+            Assert.That(completeOnly[0], Is.EqualTo(new RectInt(1, 2, 6, 2)));
+            Assert.That(completeAndPieces.Count, Is.EqualTo(3));
+            Assert.That(completeAndPieces[0], Is.EqualTo(new RectInt(1, 2, 6, 2)));
+            Assert.That(completeAndPieces, Does.Contain(new RectInt(1, 2, 2, 2)));
+            Assert.That(completeAndPieces, Does.Contain(new RectInt(5, 2, 2, 2)));
             Object.DestroyImmediate(source);
         }
 

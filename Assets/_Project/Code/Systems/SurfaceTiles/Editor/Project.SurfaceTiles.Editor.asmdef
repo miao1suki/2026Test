@@ -2,8 +2,7 @@
   "name": "Project.SurfaceTiles.Editor",
   "rootNamespace": "Project.SurfaceTiles.Editor",
   "references": [
-    "Project.SurfaceTiles.Runtime",
-    "Project.RopePaths.Runtime"
+    "Project.SurfaceTiles.Runtime"
   ],
   "includePlatforms": [
     "Editor"

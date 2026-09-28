@@ -1,7 +1,9 @@
 {
-  "name": "Project.SurfaceTiles.Runtime",
-  "rootNamespace": "Project.SurfaceTiles",
-  "references": [],
+  "name": "Project.ProjectedPlatforms.Runtime",
+  "rootNamespace": "Project.ProjectedPlatforms",
+  "references": [
+    "Project.RopePaths.Runtime"
+  ],
   "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,

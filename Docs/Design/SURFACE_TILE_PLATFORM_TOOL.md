@@ -1,4 +1,4 @@
-# 方块表面瓦片与正交单向平台
+# 方块表面瓦片
 
 ## 给策划的最短流程
 
@@ -31,8 +31,8 @@
 如果美术给的是散乱排布的透明 PNG，不需要先在外部软件重排：
 
 1. 把原图放入 `Assets/_Project/Art/ArtSource/Tiles/`。
-2. 在 Project 窗口选中图片。
-3. 选择 `Tools > 2026Test > 方块贴画 > 导入不规则瓦片图`，也可以从 Scene 贴画面板点击 `导入不规则瓦片图…`。
+2. 选择 `Tools > 2026Test > 方块贴画 > 导入不规则瓦片图`，也可以从 Scene 贴画面板点击 `导入不规则瓦片图…`。
+3. 点击窗口顶部的 `选择项目图片…`，像 Unity 自带资源字段一样直接选择图片；也仍然支持从 Project 窗口拖入或预先选中图片。
 4. 在原图上拖框。一个框可以是一块砖，也可以是连续平台、门框或整栋建筑。
 5. 在右侧命名、启用或删除选区，设置统一输出尺寸后点击 `生成规则图集和瓦片库`。
 
@@ -46,7 +46,7 @@
 
 工具不会修改原图。它会在原图旁保存一个 `_SurfaceTileImport.asset` 导入方案，记录选区和输出参数，方便团队成员继续调整。生成的规则图集、材质和 `SurfaceTilePalette` 默认进入 `Assets/_Project/Art/Generated/TilePalettes/`。
 
-`自动识别透明块` 适用于元素彼此分开的简单图片。概念图中如果还包含标题、色板或说明文字，通常直接拖框更准确；也可以先自动识别，再在右侧禁用错误项。
+`自动识别透明块` 始终先把距离较近的叶片、砖块等透明小块聚合成完整瓦片，不再默认把一簇树叶拆成每片叶子。若还需要单片叶子，启用 `同时追加独立叶片 / 碎片`：工具会保留完整树叶块，再把每片叶子作为额外瓦片追加，而不是二选一。可分别调整完整图块的聚合间距和独立碎片的最小像素数。概念图中如果还包含标题、色板或说明文字，通常直接拖框更准确。
 
 每个方块可以独立设置 `每格世界尺寸`。网格按方块当前世界尺寸自动计算，所以不同大小和缩放的正方体仍会落在相同世界单位网格上。方块互相局部重叠不会影响贴画数据；被遮住的面只是看不见，数据仍保留。
 
@@ -64,41 +64,12 @@
 
 运行时不会逐格重新拼图，也不会动态创建材质。修改方块尺寸、网格或绘制内容后，面板会显示“有未合成改动”，发布前再次点击合成即可。不要手工编辑生成目录中的文件；需要改画面时回到方块上修改源数据并重新合成。
 
-## 正交视角单向平台
-
-在面板启用 `允许从下方穿过、从上方站立` 后，可以勾选 Front、Right、Back、Left 中哪些正交 2D 视角启用平台跳跃规则。
-
-- 匹配的 2D 正交视角：角色向上移动或位于平台下方时穿过；越过平台顶面后恢复碰撞并可落脚。
-- 3D 模式、摄像机过渡期间、未勾选的 2D 方向：方块保持普通实体碰撞。
-- 切换出单向模式时，如果角色仍与方块相交，会延迟恢复碰撞直到脱离，避免把角色卡在方块里。
-
-此功能不控制角色移动，也不直接控制摄像机。它只读取角色提供的当前模式、投影方向、刚体速度，并只管理角色碰撞体与该方块之间的碰撞忽略状态。
-
-## 程序接入 API
-
-需要使用此规则的角色实现 `Project.SurfaceTiles.IProjectedPlatformActor`：
-
-```csharp
-public interface IProjectedPlatformActor
-{
-    Rigidbody ProjectedPlatformBody { get; }
-    RopeProjectionDirection ProjectedPlatformDirection { get; }
-    bool IsProjectedPlatformModeActive { get; }
-}
-```
-
-- `ProjectedPlatformBody`：角色主刚体，用于读取竖直速度。
-- `ProjectedPlatformDirection`：当前 Front/Right/Back/Left 投影方向。
-- `IsProjectedPlatformModeActive`：仅在稳定的 2D 正交模式返回 `true`；3D 与过渡阶段返回 `false`。
-
-当前 `PlayerController` 已实现此接口。后续替换玩家控制器时，只需迁移接口实现，不需要让平台依赖具体玩家类。
-
-主要运行时类型：
+## 主要运行时类型
 
 - `SurfaceTileBlock`：方块的网格、瓦片源数据和合成资源引用。
 - `SurfaceTilePalette`：瓦片库。
-- `ProjectedOneWayPlatform`：按正交方向处理单向碰撞。
-- `IProjectedPlatformActor`：玩家侧最小读取接口。
+
+正交视角单向平台是独立功能，不依赖贴画、不要求物体存在 `SurfaceTileBlock`，详见 [正交视角单向平台](PROJECTED_ONE_WAY_PLATFORMS.md)。
 
 ## 协作约定
 

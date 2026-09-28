@@ -4,7 +4,7 @@ using Project.InputAbstraction;
 using Project.LadderPaths;
 using Project.PlatformPaths;
 using Project.RopePaths;
-using Project.SurfaceTiles;
+using Project.ProjectedPlatforms;
 using UnityEngine;
 
 namespace Project.Player

@@ -15,6 +15,7 @@ namespace Project.SurfaceTiles.Editor
         }
 
         private const float SidebarWidth = 300f;
+        private const int SourcePickerControlId = 0x202603;
         private Texture2D sourceAsset;
         private Texture2D sourcePreview;
         private SurfaceTileSheetImportRecipe recipe;
@@ -30,8 +31,10 @@ namespace Project.SurfaceTiles.Editor
         private Vector2 dragStart;
         private Vector2 dragCurrent;
         private int minimumOpaquePixels = 64;
-        private int mergeGap = 3;
+        private int mergeGap = 18;
         private int detectionMargin = 2;
+        private bool includeSeparatePieces;
+        private int separatePieceMinimumPixels = 4;
         private string status = "选择源图片后，在图片上拖框即可创建瓦片。";
 
         [MenuItem("Tools/2026Test/方块贴画/导入不规则瓦片图")]
@@ -42,6 +45,10 @@ namespace Project.SurfaceTiles.Editor
             window.minSize = new Vector2(1100f, 700f);
             window.Show();
             window.TryUseProjectSelection();
+            if (window.sourceAsset == null)
+            {
+                EditorApplication.delayCall += window.ShowSourcePicker;
+            }
         }
 
         private void OnEnable()
@@ -57,8 +64,8 @@ namespace Project.SurfaceTiles.Editor
 
         private void OnSelectionChange()
         {
-            if (Selection.activeObject is Texture2D texture &&
-                texture != sourceAsset)
+            Texture2D texture = ResolveTexture(Selection.activeObject);
+            if (texture != null && texture != sourceAsset)
             {
                 SetSource(texture);
                 Repaint();
@@ -67,6 +74,7 @@ namespace Project.SurfaceTiles.Editor
 
         private void OnGUI()
         {
+            HandleSourcePickerEvent();
             HandleKeyboardShortcuts();
             DrawHeader();
             EditorGUILayout.Space(3f);
@@ -97,6 +105,11 @@ namespace Project.SurfaceTiles.Editor
                     if (next != sourceAsset)
                     {
                         SetSource(next);
+                    }
+
+                    if (GUILayout.Button("选择项目图片…", GUILayout.Width(110f)))
+                    {
+                        ShowSourcePicker();
                     }
 
                     GUILayout.Label(
@@ -291,16 +304,30 @@ namespace Project.SurfaceTiles.Editor
         {
             EditorGUILayout.LabelField("辅助识别（可选）", EditorStyles.boldLabel);
             minimumOpaquePixels = Mathf.Max(1, EditorGUILayout.IntField(
-                "忽略小于像素数",
+                "完整图块最小像素",
                 minimumOpaquePixels));
-            mergeGap = Mathf.Max(0, EditorGUILayout.IntField(
-                "合并相邻间隔",
+            mergeGap = Mathf.Max(1, EditorGUILayout.IntField(
+                "图块聚合间距",
                 mergeGap));
             detectionMargin = Mathf.Max(0, EditorGUILayout.IntField(
                 "选区外扩像素",
                 detectionMargin));
+            includeSeparatePieces = EditorGUILayout.ToggleLeft(
+                "同时追加独立叶片 / 碎片",
+                includeSeparatePieces);
+            if (includeSeparatePieces)
+            {
+                separatePieceMinimumPixels = Mathf.Max(
+                    1,
+                    EditorGUILayout.IntField(
+                        "独立碎片最小像素",
+                        separatePieceMinimumPixels));
+            }
+
             EditorGUILayout.LabelField(
-                "这类概念图含文字，自动结果需要人工删减；通常直接拖框更快。",
+                includeSeparatePieces
+                    ? "始终先生成完整图块，再把组成它的单片叶子等碎片作为额外瓦片追加。"
+                    : "默认只生成完整图块；相邻叶片、砖块会聚合在同一个选区内。",
                 EditorStyles.wordWrappedMiniLabel);
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -580,7 +607,8 @@ namespace Project.SurfaceTiles.Editor
 
         private void TryUseProjectSelection()
         {
-            if (sourceAsset == null && Selection.activeObject is Texture2D texture)
+            Texture2D texture = ResolveTexture(Selection.activeObject);
+            if (sourceAsset == null && texture != null)
             {
                 SetSource(texture);
             }
@@ -614,12 +642,15 @@ namespace Project.SurfaceTiles.Editor
                     "识别不规则瓦片",
                     "正在读取透明区域……",
                     0.45f);
-                List<RectInt> detected = SurfaceTileSheetGenerator.DetectRegions(
+                List<RectInt> detected =
+                    SurfaceTileSheetGenerator.DetectCompleteRegionsWithOptionalPieces(
                     sourcePreview,
                     0,
                     minimumOpaquePixels,
+                    separatePieceMinimumPixels,
                     mergeGap,
-                    detectionMargin);
+                    detectionMargin,
+                    includeSeparatePieces);
                 if (detected.Count == 0)
                 {
                     status = "没有识别到满足条件的透明块。";
@@ -649,7 +680,9 @@ namespace Project.SurfaceTiles.Editor
 
                 selectedIndex = recipe.Regions.Count > 0 ? 0 : -1;
                 SaveRecipe();
-                status = $"已识别 {detected.Count} 个候选区域。概念图中的文字可能被识别，请在右侧删除或禁用。";
+                status = includeSeparatePieces
+                    ? $"已生成完整图块并追加独立碎片，共 {detected.Count} 个候选区域。"
+                    : $"已识别 {detected.Count} 个完整图块。概念图中的文字可能被识别，请在右侧删除或禁用。";
             }
             finally
             {
@@ -680,6 +713,52 @@ namespace Project.SurfaceTiles.Editor
                 $"瓦片库：{result.PalettePath}\n\n" +
                 "现在可回到 Scene 贴画面板，把该瓦片库指定给方块。",
                 "确定");
+        }
+
+        private void ShowSourcePicker()
+        {
+            EditorGUIUtility.ShowObjectPicker<Texture2D>(
+                sourceAsset,
+                false,
+                "t:Texture2D",
+                SourcePickerControlId);
+        }
+
+        private void HandleSourcePickerEvent()
+        {
+            Event evt = Event.current;
+            if ((evt.commandName != "ObjectSelectorUpdated" &&
+                 evt.commandName != "ObjectSelectorClosed") ||
+                EditorGUIUtility.GetObjectPickerControlID() != SourcePickerControlId)
+            {
+                return;
+            }
+
+            Texture2D selected = ResolveTexture(
+                EditorGUIUtility.GetObjectPickerObject());
+            if (selected != null && selected != sourceAsset)
+            {
+                SetSource(selected);
+            }
+
+            evt.Use();
+        }
+
+        private static Texture2D ResolveTexture(UnityEngine.Object selected)
+        {
+            if (selected is Texture2D texture)
+            {
+                return texture;
+            }
+
+            if (selected is Sprite sprite)
+            {
+                string path = AssetDatabase.GetAssetPath(sprite);
+                return AssetDatabase.LoadAssetAtPath<Texture2D>(path) ??
+                       sprite.texture;
+            }
+
+            return null;
         }
 
         private Rect SourceToDisplay(RectInt source, Rect imageRect)

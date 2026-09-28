@@ -13,17 +13,6 @@ namespace Project.SurfaceTiles
         Bottom = 5
     }
 
-    [Flags]
-    public enum ProjectedPlatformDirections
-    {
-        None = 0,
-        Front = 1 << 0,
-        Right = 1 << 1,
-        Back = 1 << 2,
-        Left = 1 << 3,
-        All = Front | Right | Back | Left
-    }
-
     [Serializable]
     public sealed class SurfaceTilePlacement
     {

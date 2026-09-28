@@ -1,9 +1,10 @@
 {
-  "name": "Project.SurfaceTiles.EditorTests",
-  "rootNamespace": "Project.SurfaceTiles.Tests",
+  "name": "Project.ProjectedPlatforms.EditorTests",
+  "rootNamespace": "Project.ProjectedPlatforms.Tests",
   "references": [
-    "Project.SurfaceTiles.Runtime",
-    "Project.SurfaceTiles.Editor",
+    "Project.ProjectedPlatforms.Runtime",
+    "Project.ProjectedPlatforms.Editor",
+    "Project.RopePaths.Runtime",
     "UnityEngine.TestRunner",
     "UnityEditor.TestRunner"
   ],

@@ -275,7 +275,8 @@ namespace Project.SurfaceTiles.Editor
             byte alphaThreshold,
             int minimumOpaquePixels,
             int mergeGap,
-            int margin)
+            int margin,
+            int componentMinimumOpaquePixels = -1)
         {
             List<ComponentBounds> components = new List<ComponentBounds>();
             if (source == null)
@@ -320,7 +321,10 @@ namespace Project.SurfaceTiles.Editor
                     Visit(x, y + 1, width, height, pixels, visited, queue, ref tail, alphaThreshold);
                 }
 
-                if (count >= Mathf.Max(1, minimumOpaquePixels))
+                int componentMinimum = componentMinimumOpaquePixels >= 0
+                    ? componentMinimumOpaquePixels
+                    : minimumOpaquePixels;
+                if (count >= Mathf.Max(1, componentMinimum))
                 {
                     components.Add(new ComponentBounds(
                         new RectInt(
@@ -334,6 +338,8 @@ namespace Project.SurfaceTiles.Editor
 
             MergeComponents(components, Mathf.Max(0, mergeGap));
             return components
+                .Where(item => item.OpaquePixels >=
+                               Mathf.Max(1, minimumOpaquePixels))
                 .Select(item => Expand(
                     item.Rect,
                     Mathf.Max(0, margin),
@@ -342,6 +348,45 @@ namespace Project.SurfaceTiles.Editor
                 .OrderByDescending(item => item.y)
                 .ThenBy(item => item.x)
                 .ToList();
+        }
+
+        internal static List<RectInt> DetectCompleteRegionsWithOptionalPieces(
+            Texture2D source,
+            byte alphaThreshold,
+            int minimumCompleteOpaquePixels,
+            int minimumPieceOpaquePixels,
+            int mergeGap,
+            int margin,
+            bool includeSeparatePieces)
+        {
+            List<RectInt> complete = DetectRegions(
+                source,
+                alphaThreshold,
+                minimumCompleteOpaquePixels,
+                mergeGap,
+                margin,
+                minimumPieceOpaquePixels);
+            if (!includeSeparatePieces)
+            {
+                return complete;
+            }
+
+            List<RectInt> pieces = DetectRegions(
+                source,
+                alphaThreshold,
+                minimumPieceOpaquePixels,
+                0,
+                margin,
+                minimumPieceOpaquePixels);
+            foreach (RectInt piece in pieces)
+            {
+                if (!complete.Contains(piece))
+                {
+                    complete.Add(piece);
+                }
+            }
+
+            return complete;
         }
 
         private static void Visit(

@@ -125,8 +125,6 @@ namespace Project.SurfaceTiles.Editor
             private readonly Button paintToggle;
             private readonly VisualElement tileGrid;
             private readonly Label tileHint;
-            private readonly Toggle oneWayToggle;
-            private readonly EnumFlagsField directionsField;
             private readonly Label bakeStatus;
             private SurfaceTilePalette displayedPalette;
             private SurfaceTileBlock currentBlock;
@@ -270,49 +268,6 @@ namespace Project.SurfaceTiles.Editor
                     SurfaceTileEditorState.FlipY = !SurfaceTileEditorState.FlipY));
                 body.Add(transformRow);
 
-                body.Add(Section("正交视角单向平台（可选）"));
-                oneWayToggle = new Toggle("允许从下方穿过、从上方站立");
-                oneWayToggle.RegisterValueChangedCallback(evt =>
-                {
-                    if (refreshing || CurrentBlock() == null)
-                    {
-                        return;
-                    }
-
-                    if (evt.newValue)
-                    {
-                        SurfaceTileAuthoringService.EnableOneWayPlatform(CurrentBlock());
-                    }
-                    else
-                    {
-                        SurfaceTileAuthoringService.DisableOneWayPlatform(CurrentBlock());
-                    }
-                });
-                body.Add(oneWayToggle);
-                directionsField = new EnumFlagsField(
-                    "生效视角",
-                    ProjectedPlatformDirections.All);
-                directionsField.RegisterValueChangedCallback(evt =>
-                {
-                    if (refreshing || CurrentBlock() == null)
-                    {
-                        return;
-                    }
-
-                    ProjectedOneWayPlatform platform = CurrentBlock()
-                        .GetComponent<ProjectedOneWayPlatform>();
-                    if (platform == null)
-                    {
-                        return;
-                    }
-
-                    Undo.RecordObject(platform, "修改单向平台方向");
-                    platform.Directions = (ProjectedPlatformDirections)evt.newValue;
-                    EditorUtility.SetDirty(platform);
-                    EditorSceneManager.MarkSceneDirty(platform.gameObject.scene);
-                });
-                body.Add(directionsField);
-
                 body.Add(Section("发布优化"));
                 bakeStatus = Badge("尚未合成");
                 body.Add(bakeStatus);
@@ -374,14 +329,6 @@ namespace Project.SurfaceTiles.Editor
                         ? "已合成，可直接用于运行时"
                         : "有未合成改动";
 
-                ProjectedOneWayPlatform platform = block != null
-                    ? block.GetComponent<ProjectedOneWayPlatform>()
-                    : null;
-                oneWayToggle.SetValueWithoutNotify(platform != null);
-                directionsField.SetEnabled(platform != null);
-                directionsField.SetValueWithoutNotify(platform != null
-                    ? platform.Directions
-                    : ProjectedPlatformDirections.All);
                 refreshing = false;
 
                 if (displayedPalette != (block != null ? block.Palette : null))

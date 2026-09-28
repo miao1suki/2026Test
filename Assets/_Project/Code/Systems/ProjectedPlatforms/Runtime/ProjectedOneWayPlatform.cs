@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Project.RopePaths;
 using UnityEngine;
 
-namespace Project.SurfaceTiles
+namespace Project.ProjectedPlatforms
 {
     [DisallowMultipleComponent]
     [RequireComponent(typeof(BoxCollider))]

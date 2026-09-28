@@ -45,54 +45,6 @@ namespace Project.SurfaceTiles.Editor
             return block;
         }
 
-        internal static ProjectedOneWayPlatform EnableOneWayPlatform(
-            SurfaceTileBlock block)
-        {
-            if (block == null)
-            {
-                return null;
-            }
-
-            ProjectedOneWayPlatform platform =
-                block.GetComponent<ProjectedOneWayPlatform>();
-            if (platform == null)
-            {
-                platform = Undo.AddComponent<ProjectedOneWayPlatform>(
-                    block.gameObject);
-            }
-
-            Undo.RegisterFullObjectHierarchyUndo(
-                block.gameObject,
-                "配置正交单向平台");
-            platform.EnsureSetup();
-            EditorUtility.SetDirty(platform);
-            EditorSceneManager.MarkSceneDirty(block.gameObject.scene);
-            return platform;
-        }
-
-        internal static void DisableOneWayPlatform(SurfaceTileBlock block)
-        {
-            if (block == null)
-            {
-                return;
-            }
-
-            ProjectedOneWayPlatform platform =
-                block.GetComponent<ProjectedOneWayPlatform>();
-            Transform sensor = block.transform.Find("__ProjectedPlatformSensor");
-            if (sensor != null)
-            {
-                Undo.DestroyObjectImmediate(sensor.gameObject);
-            }
-
-            if (platform != null)
-            {
-                Undo.DestroyObjectImmediate(platform);
-            }
-
-            EditorSceneManager.MarkSceneDirty(block.gameObject.scene);
-        }
-
         internal static SurfaceTilePalette CreatePaletteFromSelection()
         {
             List<Sprite> sprites = new List<Sprite>();

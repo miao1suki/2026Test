@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Project.SurfaceTiles
+namespace Project.ProjectedPlatforms
 {
     [DisallowMultipleComponent]
     [RequireComponent(typeof(BoxCollider))]
