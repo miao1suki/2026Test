@@ -11,18 +11,21 @@ namespace Project.SurfaceTiles.Editor
         private enum CanvasMode
         {
             Draw = 0,
-            Select = 1
+            Remove = 1
         }
 
-        private const float SidebarWidth = 330f;
+        private const float SidebarWidth = 300f;
         private Texture2D sourceAsset;
         private Texture2D sourcePreview;
         private SurfaceTileSheetImportRecipe recipe;
         private Vector2 canvasScroll;
+        private Vector2 sidebarScroll;
         private Vector2 regionScroll;
-        private float zoom = 0.25f;
+        private float zoom = 0.35f;
         private CanvasMode canvasMode;
         private int selectedIndex = -1;
+        private int hoveredIndex = -1;
+        private bool sidebarVisible = true;
         private bool dragging;
         private Vector2 dragStart;
         private Vector2 dragCurrent;
@@ -36,13 +39,14 @@ namespace Project.SurfaceTiles.Editor
         {
             SurfaceTileSheetImporterWindow window =
                 GetWindow<SurfaceTileSheetImporterWindow>("不规则瓦片导入");
-            window.minSize = new Vector2(900f, 620f);
+            window.minSize = new Vector2(1100f, 700f);
             window.Show();
             window.TryUseProjectSelection();
         }
 
         private void OnEnable()
         {
+            wantsMouseMove = true;
             TryUseProjectSelection();
         }
 
@@ -63,12 +67,16 @@ namespace Project.SurfaceTiles.Editor
 
         private void OnGUI()
         {
+            HandleKeyboardShortcuts();
             DrawHeader();
             EditorGUILayout.Space(3f);
             using (new EditorGUILayout.HorizontalScope())
             {
                 DrawCanvasPanel();
-                DrawSidebar();
+                if (sidebarVisible)
+                {
+                    DrawSidebar();
+                }
             }
         }
 
@@ -79,17 +87,22 @@ namespace Project.SurfaceTiles.Editor
                 EditorGUILayout.LabelField(
                     "不规则瓦片图导入器",
                     EditorStyles.boldLabel);
-                EditorGUILayout.LabelField(
-                    "原图不改动。拖框挑选图案，工具会统一补透明边、生成规则图集和可直接绘制的瓦片库。",
-                    EditorStyles.wordWrappedMiniLabel);
-                Texture2D next = (Texture2D)EditorGUILayout.ObjectField(
-                    "源图片",
-                    sourceAsset,
-                    typeof(Texture2D),
-                    false);
-                if (next != sourceAsset)
+                using (new EditorGUILayout.HorizontalScope())
                 {
-                    SetSource(next);
+                    Texture2D next = (Texture2D)EditorGUILayout.ObjectField(
+                        "源图片",
+                        sourceAsset,
+                        typeof(Texture2D),
+                        false);
+                    if (next != sourceAsset)
+                    {
+                        SetSource(next);
+                    }
+
+                    GUILayout.Label(
+                        "原图不改动 · 框选后生成规则瓦片库",
+                        EditorStyles.miniLabel,
+                        GUILayout.Width(230f));
                 }
             }
         }
@@ -102,32 +115,62 @@ namespace Project.SurfaceTiles.Editor
                 {
                     canvasMode = (CanvasMode)GUILayout.Toolbar(
                         (int)canvasMode,
-                        new[] { "拖框添加", "点击选择" },
+                        new[] { "＋ 框选添加", "－ 点框取消" },
                         EditorStyles.toolbarButton,
-                        GUILayout.Width(170f));
+                        GUILayout.Width(210f));
                     GUILayout.Space(8f);
-                    GUILayout.Label("缩放", GUILayout.Width(30f));
-                    zoom = GUILayout.HorizontalSlider(
-                        zoom,
-                        0.08f,
-                        1.5f,
-                        GUILayout.Width(150f));
-                    GUILayout.Label($"{zoom:P0}", GUILayout.Width(44f));
-                    if (GUILayout.Button("适合窗口", EditorStyles.toolbarButton))
+                    if (GUILayout.Button("－", EditorStyles.toolbarButton, GUILayout.Width(25f)))
+                    {
+                        SetZoom(zoom / 1.25f);
+                    }
+
+                    GUILayout.Label($"{zoom:P0}", GUILayout.Width(42f));
+                    if (GUILayout.Button("＋", EditorStyles.toolbarButton, GUILayout.Width(25f)))
+                    {
+                        SetZoom(zoom * 1.25f);
+                    }
+
+                    if (GUILayout.Button("25%", EditorStyles.toolbarButton, GUILayout.Width(38f)))
+                    {
+                        SetZoom(0.25f);
+                    }
+
+                    if (GUILayout.Button("50%", EditorStyles.toolbarButton, GUILayout.Width(38f)))
+                    {
+                        SetZoom(0.5f);
+                    }
+
+                    if (GUILayout.Button("100%", EditorStyles.toolbarButton, GUILayout.Width(44f)))
+                    {
+                        SetZoom(1f);
+                    }
+
+                    if (GUILayout.Button("适合宽度", EditorStyles.toolbarButton))
                     {
                         FitZoom();
                     }
+
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Label(
+                        canvasMode == CanvasMode.Draw
+                            ? "空白处拖框；点已有框可选中"
+                            : "点击绿框立即取消",
+                        EditorStyles.miniLabel);
+                    if (GUILayout.Button(
+                            sidebarVisible ? "隐藏设置" : "显示设置",
+                            EditorStyles.toolbarButton,
+                            GUILayout.Width(66f)))
+                    {
+                        sidebarVisible = !sidebarVisible;
+                    }
                 }
 
-                Rect outer = GUILayoutUtility.GetRect(
-                    200f,
-                    10000f,
-                    300f,
-                    10000f,
+                canvasScroll = EditorGUILayout.BeginScrollView(
+                    canvasScroll,
+                    true,
+                    true,
                     GUILayout.ExpandWidth(true),
                     GUILayout.ExpandHeight(true));
-                GUILayout.BeginArea(outer);
-                canvasScroll = EditorGUILayout.BeginScrollView(canvasScroll);
                 if (sourcePreview == null)
                 {
                     GUILayout.FlexibleSpace();
@@ -151,12 +194,11 @@ namespace Project.SurfaceTiles.Editor
                         sourcePreview,
                         ScaleMode.StretchToFill,
                         true);
-                    DrawRegionOverlays(imageRect);
                     HandleCanvasInput(imageRect);
+                    DrawRegionOverlays(imageRect);
                 }
 
                 EditorGUILayout.EndScrollView();
-                GUILayout.EndArea();
             }
         }
 
@@ -175,12 +217,14 @@ namespace Project.SurfaceTiles.Editor
                     return;
                 }
 
+                sidebarScroll = EditorGUILayout.BeginScrollView(sidebarScroll);
+                DrawSelectedRegionActions();
                 DrawOutputSettings();
                 EditorGUILayout.Space(6f);
                 DrawDetectionSettings();
                 EditorGUILayout.Space(6f);
                 DrawRegionList();
-                GUILayout.FlexibleSpace();
+                EditorGUILayout.EndScrollView();
                 EditorGUILayout.HelpBox(status, MessageType.None);
                 GUI.enabled = CountEnabledRegions() > 0;
                 Color previous = GUI.backgroundColor;
@@ -293,8 +337,8 @@ namespace Project.SurfaceTiles.Editor
                 EditorStyles.boldLabel);
             regionScroll = EditorGUILayout.BeginScrollView(
                 regionScroll,
-                GUILayout.MinHeight(160f),
-                GUILayout.MaxHeight(310f));
+                GUILayout.MinHeight(130f),
+                GUILayout.MaxHeight(240f));
             for (int index = 0; index < recipe.Regions.Count; index++)
             {
                 SurfaceTileSourceRegion region = recipe.Regions[index];
@@ -304,48 +348,31 @@ namespace Project.SurfaceTiles.Editor
                     GUI.backgroundColor = new Color(0.25f, 0.75f, 1f, 1f);
                 }
 
-                using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+                using (new EditorGUILayout.HorizontalScope(EditorStyles.helpBox))
                 {
                     GUI.backgroundColor = previous;
-                    using (new EditorGUILayout.HorizontalScope())
+                    bool enabled = EditorGUILayout.Toggle(
+                        region.Enabled,
+                        GUILayout.Width(18f));
+                    string regionName = EditorGUILayout.TextField(region.DisplayName);
+                    if (GUILayout.Button("定位", GUILayout.Width(40f)))
                     {
-                        bool enabled = EditorGUILayout.Toggle(
-                            region.Enabled,
-                            GUILayout.Width(18f));
-                        string regionName = EditorGUILayout.TextField(region.DisplayName);
-                        if (GUILayout.Button("定位", GUILayout.Width(40f)))
-                        {
-                            selectedIndex = index;
-                            FocusRegion(region.Rect);
-                        }
-
-                        if (GUILayout.Button("×", GUILayout.Width(24f)))
-                        {
-                            Undo.RecordObject(recipe, "删除瓦片选区");
-                            recipe.Regions.RemoveAt(index);
-                            selectedIndex = Mathf.Clamp(
-                                selectedIndex,
-                                -1,
-                                recipe.Regions.Count - 1);
-                            SaveRecipe();
-                            GUIUtility.ExitGUI();
-                        }
-
-                        if (enabled != region.Enabled ||
-                            regionName != region.DisplayName)
-                        {
-                            Undo.RecordObject(recipe, "修改瓦片选区");
-                            region.Enabled = enabled;
-                            region.DisplayName = regionName;
-                            SaveRecipe();
-                        }
+                        selectedIndex = index;
+                        FocusRegion(region.Rect);
                     }
 
-                    RectInt nextRect = EditorGUILayout.RectIntField(region.Rect);
-                    if (nextRect != region.Rect)
+                    if (GUILayout.Button("×", GUILayout.Width(24f)))
+                    {
+                        RemoveRegion(index);
+                        GUIUtility.ExitGUI();
+                    }
+
+                    if (enabled != region.Enabled ||
+                        regionName != region.DisplayName)
                     {
                         Undo.RecordObject(recipe, "修改瓦片选区");
-                        region.Rect = ClampToSource(nextRect);
+                        region.Enabled = enabled;
+                        region.DisplayName = regionName;
                         SaveRecipe();
                     }
                 }
@@ -367,32 +394,38 @@ namespace Project.SurfaceTiles.Editor
             {
                 SurfaceTileSourceRegion region = recipe.Regions[index];
                 Rect display = SourceToDisplay(region.Rect, imageRect);
+                bool destructiveHover = index == hoveredIndex &&
+                                        canvasMode == CanvasMode.Remove;
                 Color color = index == selectedIndex
                     ? new Color(0.1f, 0.85f, 1f, 0.22f)
+                    : destructiveHover
+                        ? new Color(1f, 0.18f, 0.12f, 0.32f)
                     : region.Enabled
                         ? new Color(0.2f, 1f, 0.45f, 0.12f)
                         : new Color(0.5f, 0.5f, 0.5f, 0.12f);
                 EditorGUI.DrawRect(display, color);
-                Handles.BeginGUI();
-                Handles.color = index == selectedIndex
+                Color outline = destructiveHover
+                    ? new Color(1f, 0.2f, 0.12f, 1f)
+                    : index == selectedIndex
                     ? new Color(0.1f, 0.9f, 1f, 1f)
                     : region.Enabled
                         ? new Color(0.25f, 1f, 0.5f, 0.9f)
                         : new Color(0.6f, 0.6f, 0.6f, 0.7f);
-                Handles.DrawAAPolyLine(
-                    2f,
-                    new Vector3(display.xMin, display.yMin),
-                    new Vector3(display.xMax, display.yMin),
-                    new Vector3(display.xMax, display.yMax),
-                    new Vector3(display.xMin, display.yMax),
-                    new Vector3(display.xMin, display.yMin));
-                Handles.EndGUI();
+                DrawClippedOutline(display, outline, 2f);
                 if (zoom >= 0.2f && display.width >= 32f)
                 {
                     GUI.Label(
                         new Rect(display.x + 3f, display.y + 2f, display.width - 6f, 18f),
                         $"{index + 1} {region.DisplayName}",
                         EditorStyles.whiteMiniLabel);
+                }
+
+                if (destructiveHover && display.width >= 18f && display.height >= 18f)
+                {
+                    GUI.Label(
+                        new Rect(display.xMax - 20f, display.yMin + 1f, 18f, 18f),
+                        "×",
+                        EditorStyles.whiteLargeLabel);
                 }
             }
 
@@ -404,33 +437,47 @@ namespace Project.SurfaceTiles.Editor
                     Mathf.Max(dragStart.x, dragCurrent.x),
                     Mathf.Max(dragStart.y, dragCurrent.y));
                 EditorGUI.DrawRect(drag, new Color(0.1f, 0.7f, 1f, 0.2f));
-                Handles.BeginGUI();
-                Handles.color = Color.cyan;
-                Handles.DrawAAPolyLine(
-                    2f,
-                    new Vector3(drag.xMin, drag.yMin),
-                    new Vector3(drag.xMax, drag.yMin),
-                    new Vector3(drag.xMax, drag.yMax),
-                    new Vector3(drag.xMin, drag.yMax),
-                    new Vector3(drag.xMin, drag.yMin));
-                Handles.EndGUI();
+                DrawClippedOutline(drag, Color.cyan, 2f);
             }
         }
 
         private void HandleCanvasInput(Rect imageRect)
         {
             Event evt = Event.current;
+            hoveredIndex = imageRect.Contains(evt.mousePosition)
+                ? FindRegionAt(evt.mousePosition, imageRect)
+                : -1;
+            if (evt.type == EventType.MouseMove)
+            {
+                Repaint();
+            }
             if (!imageRect.Contains(evt.mousePosition) && !dragging)
             {
                 return;
             }
 
-            if (canvasMode == CanvasMode.Select &&
+            if (evt.type == EventType.MouseDown && evt.button == 1)
+            {
+                int index = FindRegionAt(evt.mousePosition, imageRect);
+                if (index >= 0)
+                {
+                    RemoveRegion(index);
+                    evt.Use();
+                }
+
+                return;
+            }
+
+            if (canvasMode == CanvasMode.Remove &&
                 evt.type == EventType.MouseDown && evt.button == 0)
             {
-                selectedIndex = FindRegionAt(evt.mousePosition, imageRect);
-                evt.Use();
-                Repaint();
+                int index = FindRegionAt(evt.mousePosition, imageRect);
+                if (index >= 0)
+                {
+                    RemoveRegion(index);
+                    evt.Use();
+                }
+
                 return;
             }
 
@@ -441,6 +488,15 @@ namespace Project.SurfaceTiles.Editor
 
             if (evt.type == EventType.MouseDown)
             {
+                int existing = FindRegionAt(evt.mousePosition, imageRect);
+                if (existing >= 0 && !evt.shift)
+                {
+                    selectedIndex = existing;
+                    Repaint();
+                    evt.Use();
+                    return;
+                }
+
                 dragging = true;
                 dragStart = evt.mousePosition;
                 dragCurrent = dragStart;
@@ -519,7 +575,7 @@ namespace Project.SurfaceTiles.Editor
 
             status = $"原图 {sourcePreview.width}×{sourcePreview.height} · " +
                      "拖框可把连续平台或整栋建筑作为一个瓦片。";
-            FitZoom();
+            SetZoom(Mathf.Max(0.35f, CalculateFitZoom()));
         }
 
         private void TryUseProjectSelection()
@@ -725,9 +781,121 @@ namespace Project.SurfaceTiles.Editor
                 return;
             }
 
-            float available = Mathf.Max(500f, position.width - SidebarWidth - 50f);
-            zoom = Mathf.Clamp(available / sourcePreview.width, 0.08f, 1.5f);
+            SetZoom(CalculateFitZoom());
             canvasScroll = Vector2.zero;
+        }
+
+        private float CalculateFitZoom()
+        {
+            if (sourcePreview == null)
+            {
+                return 0.35f;
+            }
+
+            float reserved = sidebarVisible ? SidebarWidth + 55f : 35f;
+            float available = Mathf.Max(500f, position.width - reserved);
+            return Mathf.Clamp(available / sourcePreview.width, 0.1f, 1.5f);
+        }
+
+        private void SetZoom(float value)
+        {
+            zoom = Mathf.Clamp(value, 0.1f, 2f);
+            Repaint();
+        }
+
+        private void DrawSelectedRegionActions()
+        {
+            if (selectedIndex < 0 || selectedIndex >= recipe.Regions.Count)
+            {
+                EditorGUILayout.HelpBox(
+                    "操作：框选添加 · 点绿框选中 · 右键直接删除 · Delete 删除选中。",
+                    MessageType.Info);
+                return;
+            }
+
+            SurfaceTileSourceRegion region = recipe.Regions[selectedIndex];
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                EditorGUILayout.LabelField(
+                    $"当前选中：{region.DisplayName}",
+                    EditorStyles.boldLabel);
+                RectInt nextRect = EditorGUILayout.RectIntField("像素范围", region.Rect);
+                if (nextRect != region.Rect)
+                {
+                    Undo.RecordObject(recipe, "修改瓦片选区");
+                    region.Rect = ClampToSource(nextRect);
+                    SaveRecipe();
+                }
+
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    if (GUILayout.Button(region.Enabled ? "临时禁用" : "重新启用"))
+                    {
+                        Undo.RecordObject(recipe, "切换瓦片选区");
+                        region.Enabled = !region.Enabled;
+                        SaveRecipe();
+                    }
+
+                    Color previous = GUI.backgroundColor;
+                    GUI.backgroundColor = new Color(0.9f, 0.28f, 0.22f, 1f);
+                    if (GUILayout.Button("删除选中"))
+                    {
+                        RemoveRegion(selectedIndex);
+                        GUIUtility.ExitGUI();
+                    }
+
+                    GUI.backgroundColor = previous;
+                }
+            }
+        }
+
+        private void HandleKeyboardShortcuts()
+        {
+            Event evt = Event.current;
+            if (evt.type != EventType.KeyDown ||
+                EditorGUIUtility.editingTextField ||
+                (evt.keyCode != KeyCode.Delete && evt.keyCode != KeyCode.Backspace))
+            {
+                return;
+            }
+
+            if (selectedIndex >= 0 && recipe != null &&
+                selectedIndex < recipe.Regions.Count)
+            {
+                RemoveRegion(selectedIndex);
+                evt.Use();
+            }
+        }
+
+        private void RemoveRegion(int index)
+        {
+            if (recipe == null || index < 0 || index >= recipe.Regions.Count)
+            {
+                return;
+            }
+
+            Undo.RecordObject(recipe, "删除瓦片选区");
+            recipe.Regions.RemoveAt(index);
+            if (selectedIndex == index)
+            {
+                selectedIndex = -1;
+            }
+            else if (selectedIndex > index)
+            {
+                selectedIndex--;
+            }
+
+            hoveredIndex = -1;
+            status = "已取消一个瓦片选区；可按 Ctrl+Z 撤销。";
+            SaveRecipe();
+        }
+
+        private static void DrawClippedOutline(Rect rect, Color color, float width)
+        {
+            EditorGUI.DrawRect(new Rect(rect.xMin, rect.yMin, rect.width, width), color);
+            EditorGUI.DrawRect(new Rect(rect.xMin, rect.yMax - width, rect.width, width), color);
+            EditorGUI.DrawRect(new Rect(rect.xMin, rect.yMin, width, rect.height), color);
+            EditorGUI.DrawRect(new Rect(rect.xMax - width, rect.yMin, width, rect.height), color);
         }
 
         private void SaveRecipe()
