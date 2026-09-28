@@ -262,11 +262,17 @@ namespace Project.SurfaceTiles.Editor
                 "资源名称",
                 recipe.OutputName);
             int width = Mathf.Max(8, EditorGUILayout.IntField(
-                "统一瓦片宽",
+                "输出每格像素宽",
                 recipe.OutputWidth));
             int height = Mathf.Max(8, EditorGUILayout.IntField(
-                "统一瓦片高",
+                "输出每格像素高",
                 recipe.OutputHeight));
+            int sourceCellPixels = Mathf.Max(1, EditorGUILayout.IntField(
+                "源图每格像素",
+                recipe.SourcePixelsPerCell));
+            EditorGUILayout.LabelField(
+                "例：源图每格 64 像素时，256×64 的选区会占 4×1 格。",
+                EditorStyles.wordWrappedMiniLabel);
             int padding = Mathf.Max(0, EditorGUILayout.IntField(
                 "透明边距",
                 recipe.TransparentPadding));
@@ -282,6 +288,7 @@ namespace Project.SurfaceTiles.Editor
                     recipe.Anchor);
             if (folder != recipe.OutputFolder || name != recipe.OutputName ||
                 width != recipe.OutputWidth || height != recipe.OutputHeight ||
+                sourceCellPixels != recipe.SourcePixelsPerCell ||
                 padding != recipe.TransparentPadding ||
                 trim != recipe.TrimTransparentPixels ||
                 upscale != recipe.AllowUpscale || anchor != recipe.Anchor)
@@ -292,6 +299,7 @@ namespace Project.SurfaceTiles.Editor
                     name,
                     width,
                     height,
+                    sourceCellPixels,
                     padding,
                     trim,
                     upscale,

@@ -52,6 +52,7 @@ namespace Project.SurfaceTiles.Editor
         [SerializeField] private string outputName = "SurfaceTiles";
         [SerializeField, Min(8)] private int outputWidth = 128;
         [SerializeField, Min(8)] private int outputHeight = 128;
+        [SerializeField, Min(1)] private int sourcePixelsPerCell = 64;
         [SerializeField, Min(0)] private int transparentPadding = 4;
         [SerializeField] private bool trimTransparentPixels = true;
         [SerializeField] private bool allowUpscale;
@@ -65,6 +66,9 @@ namespace Project.SurfaceTiles.Editor
         internal string OutputName => outputName;
         internal int OutputWidth => outputWidth;
         internal int OutputHeight => outputHeight;
+        internal int SourcePixelsPerCell => sourcePixelsPerCell > 0
+            ? sourcePixelsPerCell
+            : 64;
         internal int TransparentPadding => transparentPadding;
         internal bool TrimTransparentPixels => trimTransparentPixels;
         internal bool AllowUpscale => allowUpscale;
@@ -86,6 +90,7 @@ namespace Project.SurfaceTiles.Editor
             string name,
             int width,
             int height,
+            int sourceCellPixels,
             int padding,
             bool trim,
             bool upscale,
@@ -99,6 +104,7 @@ namespace Project.SurfaceTiles.Editor
                 : name.Trim();
             outputWidth = Mathf.Max(8, width);
             outputHeight = Mathf.Max(8, height);
+            sourcePixelsPerCell = Mathf.Max(1, sourceCellPixels);
             transparentPadding = Mathf.Clamp(
                 padding,
                 0,

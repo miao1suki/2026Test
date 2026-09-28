@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -32,12 +33,7 @@ namespace Project.SurfaceTiles.Editor
                 return false;
             }
 
-            if (!TryGetTilePixelSize(block.Palette, out Vector2Int tilePixels))
-            {
-                message = "瓦片库为空，或瓦片像素尺寸不一致。";
-                return false;
-            }
-
+            Vector2Int tilePixels = block.Palette.BakePixelsPerCell;
             BlockLayout layout = BuildLayout(block, tilePixels);
             if (layout.Width <= 0 || layout.Height <= 0 ||
                 layout.Width > MaximumTextureSize || layout.Height > MaximumTextureSize)
@@ -143,7 +139,9 @@ namespace Project.SurfaceTiles.Editor
                 GL.Clear(true, true, Color.clear);
                 GL.PushMatrix();
                 GL.LoadPixelMatrix(0f, layout.Width, 0f, layout.Height);
-                IReadOnlyList<SurfaceTilePlacement> placements = block.Placements;
+                List<SurfaceTilePlacement> placements = block.Placements
+                    .OrderBy(item => item.Layer)
+                    .ToList();
                 for (int index = 0; index < placements.Count; index++)
                 {
                     SurfaceTilePlacement placement = placements[index];
@@ -159,8 +157,12 @@ namespace Project.SurfaceTiles.Editor
                     }
 
                     Vector2Int grid = block.GetGridSize(placement.Face);
-                    if (placement.Cell.x < 0 || placement.Cell.y < 0 ||
-                        placement.Cell.x >= grid.x || placement.Cell.y >= grid.y)
+                    Rect placementRect = SurfaceTileGeometry.GetPlacementRect(
+                        entry,
+                        placement);
+                    if (!SurfaceTileGeometry.PlacementFitsGrid(
+                            placementRect,
+                            grid))
                     {
                         continue;
                     }
@@ -168,11 +170,17 @@ namespace Project.SurfaceTiles.Editor
                     Sprite sprite = entry.Sprite;
                     material.SetTexture("_MainTex", sprite.texture);
                     material.SetPass(0);
-                    Rect spriteUv = SurfaceTileMeshBuilder.SpriteUv(sprite);
-                    float x0 = faceRect.x + placement.Cell.x * layout.TilePixels.x;
-                    float y0 = faceRect.y + placement.Cell.y * layout.TilePixels.y;
-                    float x1 = x0 + layout.TilePixels.x;
-                    float y1 = y0 + layout.TilePixels.y;
+                    Rect spriteUv = SurfaceTileMeshBuilder.ContentUv(
+                        sprite,
+                        entry.ContentRect);
+                    float x0 = faceRect.x +
+                               placementRect.xMin * layout.TilePixels.x;
+                    float y0 = faceRect.y +
+                               placementRect.yMin * layout.TilePixels.y;
+                    float x1 = faceRect.x +
+                               placementRect.xMax * layout.TilePixels.x;
+                    float y1 = faceRect.y +
+                               placementRect.yMax * layout.TilePixels.y;
                     Vector2[] logical =
                     {
                         new Vector2(0f, 0f),
@@ -265,36 +273,6 @@ namespace Project.SurfaceTiles.Editor
                 grid.y * layout.TilePixels.y);
             layout.FaceRects[face] = rect;
             x += rect.width;
-        }
-
-        private static bool TryGetTilePixelSize(
-            SurfaceTilePalette palette,
-            out Vector2Int size)
-        {
-            size = default;
-            IReadOnlyList<SurfaceTilePalette.Entry> tiles = palette.Tiles;
-            for (int index = 0; index < tiles.Count; index++)
-            {
-                Sprite sprite = tiles[index]?.Sprite;
-                if (sprite == null)
-                {
-                    continue;
-                }
-
-                Vector2Int candidate = new Vector2Int(
-                    Mathf.RoundToInt(sprite.textureRect.width),
-                    Mathf.RoundToInt(sprite.textureRect.height));
-                if (size == default)
-                {
-                    size = candidate;
-                }
-                else if (size != candidate)
-                {
-                    return false;
-                }
-            }
-
-            return size.x > 0 && size.y > 0;
         }
 
         private static void EnsureUniqueId(SurfaceTileBlock block)

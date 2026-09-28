@@ -50,7 +50,16 @@ namespace Project.SurfaceTiles.Editor
             {
                 SurfaceTileEditorState.HoverFace = face;
                 SurfaceTileEditorState.HoverCell = cell;
-                DrawGrid(block, face, cell);
+                SurfaceTilePaintMode hoverMode = evt.control
+                    ? SurfaceTilePaintMode.Pick
+                    : evt.shift
+                        ? SurfaceTilePaintMode.Erase
+                        : SurfaceTileEditorState.Mode;
+                DrawGrid(
+                    block,
+                    face,
+                    cell,
+                    hoverMode == SurfaceTilePaintMode.Paint);
             }
 
             if (evt.type == EventType.MouseUp && evt.button == 0)
@@ -148,6 +157,7 @@ namespace Project.SurfaceTiles.Editor
                     SurfaceTileEditorState.QuarterTurns = placement.QuarterTurns;
                     SurfaceTileEditorState.FlipX = placement.FlipX;
                     SurfaceTileEditorState.FlipY = placement.FlipY;
+                    SurfaceTileEditorState.Anchor = placement.Anchor;
                 }
 
                 return;
@@ -165,13 +175,15 @@ namespace Project.SurfaceTiles.Editor
                          SurfaceTileEditorState.SelectedTileId,
                          out _))
             {
-                block.SetTile(
+                block.AddTile(
                     face,
                     cell,
                     SurfaceTileEditorState.SelectedTileId,
                     SurfaceTileEditorState.QuarterTurns,
                     SurfaceTileEditorState.FlipX,
-                    SurfaceTileEditorState.FlipY);
+                    SurfaceTileEditorState.FlipY,
+                    SurfaceTileEditorState.Anchor,
+                    SurfaceTileEditorState.Stack);
             }
 
             SurfaceTileMeshBuilder.RefreshPreview(block);
@@ -183,12 +195,27 @@ namespace Project.SurfaceTiles.Editor
         private static void DrawGrid(
             SurfaceTileBlock block,
             SurfaceTileFace face,
-            Vector2Int hoverCell)
+            Vector2Int hoverCell,
+            bool previewSelectedTile)
         {
             SurfaceTileFaceBasis basis = SurfaceTileGeometry.GetLocalBasis(
                 block.SurfaceCollider,
                 face);
             Vector2Int grid = block.GetGridSize(face);
+            Rect hoverRect = new Rect(hoverCell, Vector2.one);
+            if (previewSelectedTile && block.Palette != null &&
+                block.Palette.TryGet(
+                    SurfaceTileEditorState.SelectedTileId,
+                    out SurfaceTilePalette.Entry entry))
+            {
+                hoverRect = SurfaceTileGeometry.GetPlacementRect(
+                    entry,
+                    hoverCell,
+                    SurfaceTileEditorState.QuarterTurns,
+                    SurfaceTileEditorState.Anchor);
+            }
+
+            bool valid = SurfaceTileGeometry.PlacementFitsGrid(hoverRect, grid);
             Matrix4x4 previous = Handles.matrix;
             Color previousColor = Handles.color;
             Handles.matrix = block.transform.localToWorldMatrix;
@@ -210,10 +237,10 @@ namespace Project.SurfaceTiles.Editor
                     basis.Point(1f, v, bias));
             }
 
-            float u0 = (float)hoverCell.x / grid.x;
-            float u1 = (float)(hoverCell.x + 1) / grid.x;
-            float v0 = (float)hoverCell.y / grid.y;
-            float v1 = (float)(hoverCell.y + 1) / grid.y;
+            float u0 = hoverRect.xMin / grid.x;
+            float u1 = hoverRect.xMax / grid.x;
+            float v0 = hoverRect.yMin / grid.y;
+            float v1 = hoverRect.yMax / grid.y;
             Vector3[] corners =
             {
                 basis.Point(u0, v0, bias * 1.5f),
@@ -223,8 +250,12 @@ namespace Project.SurfaceTiles.Editor
             };
             Handles.DrawSolidRectangleWithOutline(
                 corners,
-                new Color(0.1f, 0.75f, 1f, 0.22f),
-                new Color(0.2f, 0.95f, 1f, 1f));
+                valid
+                    ? new Color(0.1f, 0.75f, 1f, 0.22f)
+                    : new Color(1f, 0.15f, 0.1f, 0.22f),
+                valid
+                    ? new Color(0.2f, 0.95f, 1f, 1f)
+                    : new Color(1f, 0.2f, 0.1f, 1f));
             Handles.matrix = previous;
             Handles.color = previousColor;
         }

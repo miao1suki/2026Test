@@ -125,11 +125,15 @@ namespace Project.SurfaceTiles.Editor
             private readonly Button paintToggle;
             private readonly VisualElement tileGrid;
             private readonly Label tileHint;
+            private readonly Label tileSizeStatus;
+            private readonly Toggle stackToggle;
             private readonly Label bakeStatus;
             private SurfaceTilePalette displayedPalette;
             private SurfaceTileBlock currentBlock;
             private readonly Dictionary<string, Button> tileButtons =
                 new Dictionary<string, Button>();
+            private readonly Dictionary<SurfaceTileAnchor, Button> anchorButtons =
+                new Dictionary<SurfaceTileAnchor, Button>();
             private bool refreshing;
 
             internal HudElements(VisualElement root)
@@ -161,7 +165,8 @@ namespace Project.SurfaceTiles.Editor
                 titles.Add(subtitle);
                 header.Add(titles);
 
-                body = new VisualElement();
+                body = new ScrollView(ScrollViewMode.Vertical);
+                body.style.maxHeight = 650f;
                 Button collapse = SmallButton("▾", null);
                 collapse.clicked += () =>
                 {
@@ -258,10 +263,37 @@ namespace Project.SurfaceTiles.Editor
                 body.Add(Button("导入不规则瓦片图…", () =>
                     SurfaceTileSheetImporterWindow.OpenWindow()));
 
+                tileSizeStatus = Badge("选择瓦片后显示实际尺寸");
+                body.Add(tileSizeStatus);
+
+                stackToggle = new Toggle("叠加到已有贴画（保留透明处底图）")
+                {
+                    value = SurfaceTileEditorState.Stack
+                };
+                stackToggle.RegisterValueChangedCallback(evt =>
+                    SurfaceTileEditorState.Stack = evt.newValue);
+                body.Add(stackToggle);
+
+                body.Add(Section("摆放锚点"));
+                VisualElement anchorRowA = Row();
+                AddAnchorButton(anchorRowA, SurfaceTileAnchor.BottomLeft, "起点铺开");
+                AddAnchorButton(anchorRowA, SurfaceTileAnchor.Center, "格内居中");
+                AddAnchorButton(anchorRowA, SurfaceTileAnchor.BottomEdge, "贴下边");
+                body.Add(anchorRowA);
+                VisualElement anchorRowB = Row();
+                AddAnchorButton(anchorRowB, SurfaceTileAnchor.TopEdge, "贴上边");
+                AddAnchorButton(anchorRowB, SurfaceTileAnchor.LeftEdge, "贴左边");
+                AddAnchorButton(anchorRowB, SurfaceTileAnchor.RightEdge, "贴右边");
+                body.Add(anchorRowB);
+
                 VisualElement transformRow = Row();
                 transformRow.Add(Button("↻ 旋转", () =>
+                {
                     SurfaceTileEditorState.QuarterTurns =
-                        (SurfaceTileEditorState.QuarterTurns + 1) % 4));
+                        (SurfaceTileEditorState.QuarterTurns + 1) % 4;
+                    UpdateTileSelection();
+                    SceneView.RepaintAll();
+                }));
                 transformRow.Add(Button("↔ 翻转", () =>
                     SurfaceTileEditorState.FlipX = !SurfaceTileEditorState.FlipX));
                 transformRow.Add(Button("↕ 翻转", () =>
@@ -284,6 +316,7 @@ namespace Project.SurfaceTiles.Editor
                 })));
                 Label help = new Label(
                     "左键绘制 · Shift+左键擦除 · Ctrl+左键吸取 · Esc退出\n" +
+                    "大图自动占多格；叠加开启时透明处保留底图。\n" +
                     "合成后运行时只读 Mesh/材质/PNG，不重新计算每格贴画。");
                 help.style.fontSize = 9f;
                 help.style.opacity = 0.72f;
@@ -313,12 +346,13 @@ namespace Project.SurfaceTiles.Editor
                 refreshing = true;
                 selectionStatus.text = block == null
                     ? "未选中可贴画方块"
-                    : $"已选：{block.name} · {block.Placements.Count} 格";
+                    : $"已选：{block.name} · {block.Placements.Count} 层贴画";
                 selectionStatus.style.backgroundColor = block == null
                     ? new Color(0.35f, 0.2f, 0.12f, 0.75f)
                     : new Color(0.08f, 0.35f, 0.27f, 0.8f);
                 paletteField.SetValueWithoutNotify(block != null ? block.Palette : null);
                 cellSizeField.SetValueWithoutNotify(block != null ? block.CellSize : 1f);
+                stackToggle.SetValueWithoutNotify(SurfaceTileEditorState.Stack);
                 paintToggle.SetEnabled(block != null && block.Palette != null);
                 paintToggle.text = SurfaceTileEditorState.Painting
                     ? "■ 退出绘制（Esc）"
@@ -400,7 +434,9 @@ namespace Project.SurfaceTiles.Editor
                         SurfaceTileEditorState.Mode = SurfaceTilePaintMode.Paint;
                     })
                     {
-                        tooltip = tile.DisplayName
+                        tooltip = $"{tile.DisplayName} · " +
+                                  $"{FormatSize(tile.SizeInCells.x)}×" +
+                                  $"{FormatSize(tile.SizeInCells.y)} 格"
                     };
                     button.style.width = 62f;
                     button.style.height = 62f;
@@ -430,6 +466,55 @@ namespace Project.SurfaceTiles.Editor
                     pair.Value.style.borderTopWidth = 2f;
                     pair.Value.style.borderBottomWidth = 2f;
                 }
+
+                foreach (KeyValuePair<SurfaceTileAnchor, Button> pair in anchorButtons)
+                {
+                    pair.Value.style.backgroundColor =
+                        pair.Key == SurfaceTileEditorState.Anchor
+                            ? new Color(0.12f, 0.52f, 0.82f, 1f)
+                            : new Color(0f, 0f, 0f, 0.18f);
+                }
+
+                if (displayedPalette != null && displayedPalette.TryGet(
+                        SurfaceTileEditorState.SelectedTileId,
+                        out SurfaceTilePalette.Entry selected))
+                {
+                    Vector2 rotated = SurfaceTileGeometry.GetRotatedSize(
+                        selected,
+                        SurfaceTileEditorState.QuarterTurns);
+                    Vector2Int footprint = new Vector2Int(
+                        Mathf.CeilToInt(rotated.x - 0.0001f),
+                        Mathf.CeilToInt(rotated.y - 0.0001f));
+                    tileSizeStatus.text =
+                        $"显示尺寸 {FormatSize(rotated.x)}×{FormatSize(rotated.y)} 格" +
+                        $" · 占用 {footprint.x}×{footprint.y} 格";
+                }
+                else
+                {
+                    tileSizeStatus.text = "选择瓦片后显示实际尺寸";
+                }
+            }
+
+            private void AddAnchorButton(
+                VisualElement row,
+                SurfaceTileAnchor anchor,
+                string text)
+            {
+                Button button = Button(text, () =>
+                {
+                    SurfaceTileEditorState.Anchor = anchor;
+                    UpdateTileSelection();
+                    SceneView.RepaintAll();
+                });
+                row.Add(button);
+                anchorButtons[anchor] = button;
+            }
+
+            private static string FormatSize(float value)
+            {
+                return Mathf.Approximately(value, Mathf.Round(value))
+                    ? Mathf.RoundToInt(value).ToString()
+                    : value.ToString("0.##");
             }
 
             private static VisualElement Row()

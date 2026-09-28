@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -48,7 +49,9 @@ namespace Project.SurfaceTiles.Editor
                 return CreateMesh(vertices, normals, uvs, triangles);
             }
 
-            IReadOnlyList<SurfaceTilePlacement> placements = block.Placements;
+            List<SurfaceTilePlacement> placements = block.Placements
+                .OrderBy(item => item.Layer)
+                .ToList();
             for (int index = 0; index < placements.Count; index++)
             {
                 SurfaceTilePlacement placement = placements[index];
@@ -59,22 +62,25 @@ namespace Project.SurfaceTiles.Editor
                 }
 
                 Vector2Int grid = block.GetGridSize(placement.Face);
-                if (placement.Cell.x < 0 || placement.Cell.y < 0 ||
-                    placement.Cell.x >= grid.x || placement.Cell.y >= grid.y)
+                Rect placementRect = SurfaceTileGeometry.GetPlacementRect(
+                    tile,
+                    placement);
+                if (!SurfaceTileGeometry.PlacementFitsGrid(placementRect, grid))
                 {
                     continue;
                 }
 
-                Rect spriteUv = SpriteUv(tile.Sprite);
-                AddCellQuad(
+                Rect spriteUv = ContentUv(tile.Sprite, tile.ContentRect);
+                AddPlacementQuad(
                     block,
                     placement.Face,
-                    placement.Cell,
+                    placementRect,
                     grid,
                     spriteUv,
                     placement.QuarterTurns,
                     placement.FlipX,
                     placement.FlipY,
+                    WorldSurfaceBias + index * 0.00005f,
                     vertices,
                     normals,
                     uvs,
@@ -188,24 +194,35 @@ namespace Project.SurfaceTiles.Editor
                 rect.height / texture.height);
         }
 
-        private static void AddCellQuad(
+        internal static Rect ContentUv(Sprite sprite, Rect contentRect)
+        {
+            Rect spriteUv = SpriteUv(sprite);
+            return new Rect(
+                spriteUv.x + contentRect.x * spriteUv.width,
+                spriteUv.y + contentRect.y * spriteUv.height,
+                contentRect.width * spriteUv.width,
+                contentRect.height * spriteUv.height);
+        }
+
+        private static void AddPlacementQuad(
             SurfaceTileBlock block,
             SurfaceTileFace face,
-            Vector2Int cell,
+            Rect placementRect,
             Vector2Int grid,
             Rect uvRect,
             int turns,
             bool flipX,
             bool flipY,
+            float worldBias,
             List<Vector3> vertices,
             List<Vector3> normals,
             List<Vector2> uvs,
             List<int> triangles)
         {
-            float u0 = (float)cell.x / grid.x;
-            float u1 = (float)(cell.x + 1) / grid.x;
-            float v0 = (float)cell.y / grid.y;
-            float v1 = (float)(cell.y + 1) / grid.y;
+            float u0 = placementRect.xMin / grid.x;
+            float u1 = placementRect.xMax / grid.x;
+            float v0 = placementRect.yMin / grid.y;
+            float v1 = placementRect.yMax / grid.y;
             AddQuad(
                 block,
                 face,
@@ -217,6 +234,7 @@ namespace Project.SurfaceTiles.Editor
                 turns,
                 flipX,
                 flipY,
+                worldBias,
                 vertices,
                 normals,
                 uvs,
@@ -243,6 +261,7 @@ namespace Project.SurfaceTiles.Editor
                 0,
                 false,
                 false,
+                WorldSurfaceBias,
                 vertices,
                 normals,
                 uvs,
@@ -260,6 +279,7 @@ namespace Project.SurfaceTiles.Editor
             int turns,
             bool flipX,
             bool flipY,
+            float worldBias,
             List<Vector3> vertices,
             List<Vector3> normals,
             List<Vector2> uvs,
@@ -271,7 +291,7 @@ namespace Project.SurfaceTiles.Editor
             float axisScale = Vector3.Magnitude(Vector3.Scale(
                 basis.Normal,
                 block.transform.lossyScale));
-            float localBias = WorldSurfaceBias / Mathf.Max(0.0001f, axisScale);
+            float localBias = worldBias / Mathf.Max(0.0001f, axisScale);
             Vector3[] positions =
             {
                 basis.Point(u0, v0, localBias),

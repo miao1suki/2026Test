@@ -15,6 +15,9 @@ namespace Project.SurfaceTiles.Editor
         internal static int QuarterTurns { get; set; }
         internal static bool FlipX { get; set; }
         internal static bool FlipY { get; set; }
+        internal static SurfaceTileAnchor Anchor { get; set; } =
+            SurfaceTileAnchor.BottomLeft;
+        internal static bool Stack { get; set; } = true;
         internal static SurfaceTileFace HoverFace { get; set; }
         internal static UnityEngine.Vector2Int HoverCell { get; set; }
         internal static SurfaceTileBlock HoverBlock { get; set; }

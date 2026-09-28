@@ -117,6 +117,8 @@ namespace Project.SurfaceTiles.Editor
                 Color32[] sourcePixels = source.GetPixels32();
                 Color32[] atlasPixels = new Color32[atlasWidth * atlasHeight];
                 List<string> names = CreateUniqueNames(regions);
+                List<RectInt> contentRects = new List<RectInt>(regions.Count);
+                List<Vector2> sizesInCells = new List<Vector2>(regions.Count);
                 for (int index = 0; index < regions.Count; index++)
                 {
                     RectInt rect = ClampRect(
@@ -136,7 +138,7 @@ namespace Project.SurfaceTiles.Editor
 
                     int cellX = index % columns * recipe.OutputWidth;
                     int cellY = index / columns * recipe.OutputHeight;
-                    CopyToCell(
+                    RectInt contentRect = CopyToCell(
                         sourcePixels,
                         source.width,
                         rect,
@@ -149,6 +151,10 @@ namespace Project.SurfaceTiles.Editor
                         recipe.TransparentPadding,
                         recipe.AllowUpscale,
                         recipe.Anchor);
+                    contentRects.Add(contentRect);
+                    sizesInCells.Add(new Vector2(
+                        rect.width / (float)recipe.SourcePixelsPerCell,
+                        rect.height / (float)recipe.SourcePixelsPerCell));
                 }
 
                 atlas = new Texture2D(
@@ -210,6 +216,23 @@ namespace Project.SurfaceTiles.Editor
                 }
 
                 palette.ReplaceTilesPreservingIds(sprites);
+                palette.SetBakePixelsPerCell(new Vector2Int(
+                    recipe.OutputWidth,
+                    recipe.OutputHeight));
+                for (int index = 0; index < names.Count; index++)
+                {
+                    int cellX = index % columns * recipe.OutputWidth;
+                    int cellY = index / columns * recipe.OutputHeight;
+                    RectInt content = contentRects[index];
+                    palette.ConfigureTileLayout(
+                        names[index],
+                        sizesInCells[index],
+                        new Rect(
+                            (content.x - cellX) / (float)recipe.OutputWidth,
+                            (content.y - cellY) / (float)recipe.OutputHeight,
+                            content.width / (float)recipe.OutputWidth,
+                            content.height / (float)recipe.OutputHeight));
+                }
                 for (int index = 0; index < previousSprites.Length; index++)
                 {
                     if (previousSprites[index] != null)
@@ -445,7 +468,7 @@ namespace Project.SurfaceTiles.Editor
             } while (changed);
         }
 
-        private static void CopyToCell(
+        private static RectInt CopyToCell(
             Color32[] source,
             int sourceWidth,
             RectInt rect,
@@ -490,6 +513,8 @@ namespace Project.SurfaceTiles.Editor
                         source[sourceY * sourceWidth + sourceX];
                 }
             }
+
+            return new RectInt(offsetX, offsetY, drawWidth, drawHeight);
         }
 
         private static RectInt Trim(

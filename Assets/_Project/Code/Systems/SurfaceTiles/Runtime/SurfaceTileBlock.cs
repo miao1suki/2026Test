@@ -53,18 +53,24 @@ namespace Project.SurfaceTiles
             Vector2Int cell,
             out SurfaceTilePlacement placement)
         {
+            placement = null;
+            int bestLayer = int.MinValue;
             for (int index = 0; index < placements.Count; index++)
             {
                 SurfaceTilePlacement candidate = placements[index];
-                if (candidate.Face == face && candidate.Cell == cell)
+                if (candidate.Face != face ||
+                    candidate.Layer < bestLayer ||
+                    !TryGetPlacementRect(candidate, out Rect rect) ||
+                    !SurfaceTileGeometry.PlacementCoversCell(rect, cell))
                 {
-                    placement = candidate;
-                    return true;
+                    continue;
                 }
+
+                placement = candidate;
+                bestLayer = candidate.Layer;
             }
 
-            placement = null;
-            return false;
+            return placement != null;
         }
 
         public void SetTile(
@@ -81,7 +87,7 @@ namespace Project.SurfaceTiles
                 return;
             }
 
-            if (TryGetPlacement(face, cell, out SurfaceTilePlacement placement))
+            if (TryGetOriginPlacement(face, cell, out SurfaceTilePlacement placement))
             {
                 placement.SetTile(tileId, quarterTurns, flipX, flipY);
             }
@@ -99,20 +105,105 @@ namespace Project.SurfaceTiles
             bakeUpToDate = false;
         }
 
-        public bool RemoveTile(SurfaceTileFace face, Vector2Int cell)
+        public bool AddTile(
+            SurfaceTileFace face,
+            Vector2Int cell,
+            string tileId,
+            int quarterTurns,
+            bool flipX,
+            bool flipY,
+            SurfaceTileAnchor anchor,
+            bool stack)
         {
+            if (palette == null ||
+                string.IsNullOrWhiteSpace(tileId) ||
+                !palette.TryGet(tileId, out SurfaceTilePalette.Entry entry))
+            {
+                return false;
+            }
+
+            Rect targetRect = SurfaceTileGeometry.GetPlacementRect(
+                entry,
+                cell,
+                quarterTurns,
+                anchor);
+            if (!SurfaceTileGeometry.PlacementFitsGrid(
+                    targetRect,
+                    GetGridSize(face)))
+            {
+                return false;
+            }
+
+            int nextLayer = 0;
             for (int index = placements.Count - 1; index >= 0; index--)
             {
-                SurfaceTilePlacement placement = placements[index];
-                if (placement.Face == face && placement.Cell == cell)
+                SurfaceTilePlacement candidate = placements[index];
+                if (candidate.Face != face ||
+                    !TryGetPlacementRect(candidate, out Rect candidateRect) ||
+                    !RectsOverlap(candidateRect, targetRect))
+                {
+                    continue;
+                }
+
+                if (stack &&
+                    candidate.Cell == cell &&
+                    candidate.TileId == tileId &&
+                    candidate.QuarterTurns == Mathf.Abs(quarterTurns) % 4 &&
+                    candidate.FlipX == flipX &&
+                    candidate.FlipY == flipY &&
+                    candidate.Anchor == anchor)
+                {
+                    return true;
+                }
+
+                if (stack)
+                {
+                    nextLayer = Mathf.Max(nextLayer, candidate.Layer + 1);
+                }
+                else
                 {
                     placements.RemoveAt(index);
-                    bakeUpToDate = false;
-                    return true;
                 }
             }
 
-            return false;
+            placements.Add(new SurfaceTilePlacement(
+                face,
+                cell,
+                tileId,
+                quarterTurns,
+                flipX,
+                flipY,
+                anchor,
+                nextLayer));
+            bakeUpToDate = false;
+            return true;
+        }
+
+        public bool RemoveTile(SurfaceTileFace face, Vector2Int cell)
+        {
+            int removeIndex = -1;
+            int bestLayer = int.MinValue;
+            for (int index = placements.Count - 1; index >= 0; index--)
+            {
+                SurfaceTilePlacement placement = placements[index];
+                if (placement.Face == face &&
+                    placement.Layer > bestLayer &&
+                    TryGetPlacementRect(placement, out Rect rect) &&
+                    SurfaceTileGeometry.PlacementCoversCell(rect, cell))
+                {
+                    removeIndex = index;
+                    bestLayer = placement.Layer;
+                }
+            }
+
+            if (removeIndex < 0)
+            {
+                return false;
+            }
+
+            placements.RemoveAt(removeIndex);
+            bakeUpToDate = false;
+            return true;
         }
 
         public int ClearFace(SurfaceTileFace face)
@@ -142,9 +233,13 @@ namespace Project.SurfaceTiles
             {
                 SurfaceTilePlacement placement = placements[index];
                 Vector2Int size = GetGridSize(placement.Face);
-                if (placement.Cell.x < 0 || placement.Cell.y < 0 ||
-                    placement.Cell.x >= size.x || placement.Cell.y >= size.y ||
-                    palette == null || !palette.TryGet(placement.TileId, out _))
+                if (palette == null ||
+                    !palette.TryGet(
+                        placement.TileId,
+                        out SurfaceTilePalette.Entry entry) ||
+                    !SurfaceTileGeometry.PlacementFitsGrid(
+                        SurfaceTileGeometry.GetPlacementRect(entry, placement),
+                        size))
                 {
                     placements.RemoveAt(index);
                     removed++;
@@ -236,6 +331,52 @@ namespace Project.SurfaceTiles
         private static bool Approximately(Vector3 left, Vector3 right)
         {
             return (left - right).sqrMagnitude <= 0.000001f;
+        }
+
+        private bool TryGetOriginPlacement(
+            SurfaceTileFace face,
+            Vector2Int cell,
+            out SurfaceTilePlacement placement)
+        {
+            placement = null;
+            int bestLayer = int.MinValue;
+            for (int index = 0; index < placements.Count; index++)
+            {
+                SurfaceTilePlacement candidate = placements[index];
+                if (candidate.Face == face && candidate.Cell == cell &&
+                    candidate.Layer >= bestLayer)
+                {
+                    placement = candidate;
+                    bestLayer = candidate.Layer;
+                }
+            }
+
+            return placement != null;
+        }
+
+        private bool TryGetPlacementRect(
+            SurfaceTilePlacement placement,
+            out Rect rect)
+        {
+            if (placement != null && palette != null &&
+                palette.TryGet(
+                    placement.TileId,
+                    out SurfaceTilePalette.Entry entry))
+            {
+                rect = SurfaceTileGeometry.GetPlacementRect(entry, placement);
+                return true;
+            }
+
+            rect = default;
+            return false;
+        }
+
+        private static bool RectsOverlap(Rect left, Rect right)
+        {
+            return left.xMin < right.xMax - 0.0001f &&
+                   left.xMax > right.xMin + 0.0001f &&
+                   left.yMin < right.yMax - 0.0001f &&
+                   left.yMax > right.yMin + 0.0001f;
         }
     }
 }

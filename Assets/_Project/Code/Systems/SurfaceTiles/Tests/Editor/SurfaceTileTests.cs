@@ -115,6 +115,8 @@ namespace Project.SurfaceTiles.Tests
             Assert.That(block.Placements[0].FlipX, Is.True);
             Assert.That(mesh.vertexCount, Is.EqualTo(4));
             Assert.That(mesh.triangles.Length, Is.EqualTo(6));
+            Assert.That(mesh.bounds.size.x, Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(mesh.bounds.size.y, Is.EqualTo(1f).Within(0.0001f));
 
             Object.DestroyImmediate(mesh);
             Object.DestroyImmediate(target);
@@ -139,6 +141,124 @@ namespace Project.SurfaceTiles.Tests
 
             Assert.That(rotated, Is.EqualTo(new Vector2(0f, 1f)));
             Assert.That(flipped, Is.EqualTo(new Vector2(0.75f, 0.25f)));
+        }
+
+        [Test]
+        public void PlacementRect_UsesMultiCellSizeRotationAndEdgeAnchor()
+        {
+            Texture2D texture = new Texture2D(4, 4);
+            Sprite sprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, 4f, 4f),
+                new Vector2(0.5f, 0.5f),
+                4f);
+            sprite.name = "Wide";
+            SurfaceTilePalette palette =
+                ScriptableObject.CreateInstance<SurfaceTilePalette>();
+            palette.ReplaceTiles(new[] { sprite });
+            palette.ConfigureTileLayout(
+                "Wide",
+                new Vector2(3f, 1f),
+                new Rect(0f, 0f, 1f, 1f));
+            SurfaceTilePalette.Entry entry = palette.Tiles[0];
+
+            Rect normal = SurfaceTileGeometry.GetPlacementRect(
+                entry,
+                new Vector2Int(1, 2),
+                0,
+                SurfaceTileAnchor.BottomLeft);
+            Rect rotated = SurfaceTileGeometry.GetPlacementRect(
+                entry,
+                new Vector2Int(1, 2),
+                1,
+                SurfaceTileAnchor.BottomLeft);
+            palette.ConfigureTileLayout(
+                "Wide",
+                new Vector2(1f, 0.25f),
+                new Rect(0f, 0f, 1f, 1f));
+            Rect topEdge = SurfaceTileGeometry.GetPlacementRect(
+                entry,
+                new Vector2Int(2, 4),
+                0,
+                SurfaceTileAnchor.TopEdge);
+
+            Assert.That(normal, Is.EqualTo(new Rect(1f, 2f, 3f, 1f)));
+            Assert.That(rotated, Is.EqualTo(new Rect(1f, 2f, 1f, 3f)));
+            Assert.That(topEdge, Is.EqualTo(new Rect(2f, 4.75f, 1f, 0.25f)));
+
+            Object.DestroyImmediate(palette);
+            Object.DestroyImmediate(sprite);
+            Object.DestroyImmediate(texture);
+        }
+
+        [Test]
+        public void LayeredPlacements_KeepBackgroundAndEraseTopFirst()
+        {
+            Texture2D texture = new Texture2D(2, 2);
+            Sprite background = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, 2f, 2f),
+                new Vector2(0.5f, 0.5f),
+                2f);
+            Sprite leaves = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, 2f, 2f),
+                new Vector2(0.5f, 0.5f),
+                2f);
+            background.name = "Background";
+            leaves.name = "Leaves";
+            SurfaceTilePalette palette =
+                ScriptableObject.CreateInstance<SurfaceTilePalette>();
+            palette.ReplaceTiles(new[] { background, leaves });
+            GameObject target = new GameObject("LayeredBlock");
+            target.AddComponent<BoxCollider>();
+            SurfaceTileBlock block = target.AddComponent<SurfaceTileBlock>();
+            block.Configure(palette, 1f);
+
+            Assert.That(block.AddTile(
+                SurfaceTileFace.Front,
+                Vector2Int.zero,
+                palette.Tiles[0].Id,
+                0,
+                false,
+                false,
+                SurfaceTileAnchor.BottomLeft,
+                true), Is.True);
+            Assert.That(block.AddTile(
+                SurfaceTileFace.Front,
+                Vector2Int.zero,
+                palette.Tiles[1].Id,
+                0,
+                false,
+                false,
+                SurfaceTileAnchor.Center,
+                true), Is.True);
+
+            Assert.That(block.Placements.Count, Is.EqualTo(2));
+            Mesh layeredMesh = SurfaceTileMeshBuilder.BuildCellMesh(block);
+            Assert.That(layeredMesh.vertexCount, Is.EqualTo(8));
+            Assert.That(block.TryGetPlacement(
+                SurfaceTileFace.Front,
+                Vector2Int.zero,
+                out SurfaceTilePlacement top), Is.True);
+            Assert.That(top.TileId, Is.EqualTo(palette.Tiles[1].Id));
+            Assert.That(top.Layer, Is.EqualTo(1));
+
+            Assert.That(block.RemoveTile(
+                SurfaceTileFace.Front,
+                Vector2Int.zero), Is.True);
+            Assert.That(block.TryGetPlacement(
+                SurfaceTileFace.Front,
+                Vector2Int.zero,
+                out SurfaceTilePlacement remaining), Is.True);
+            Assert.That(remaining.TileId, Is.EqualTo(palette.Tiles[0].Id));
+
+            Object.DestroyImmediate(layeredMesh);
+            Object.DestroyImmediate(target);
+            Object.DestroyImmediate(palette);
+            Object.DestroyImmediate(background);
+            Object.DestroyImmediate(leaves);
+            Object.DestroyImmediate(texture);
         }
 
         [Test]
@@ -336,6 +456,7 @@ namespace Project.SurfaceTiles.Tests
                     "TestTiles",
                     16,
                     16,
+                    2,
                     1,
                     true,
                     true,
@@ -359,6 +480,15 @@ namespace Project.SurfaceTiles.Tests
                 Assert.That(first.Palette.Tiles.Count, Is.EqualTo(2));
                 Assert.That(first.Palette.Tiles.All(item =>
                     item.Sprite.rect.size == new Vector2(16f, 16f)), Is.True);
+                Assert.That(
+                    first.Palette.Tiles[0].SizeInCells,
+                    Is.EqualTo(Vector2.one));
+                Assert.That(
+                    first.Palette.Tiles[1].SizeInCells,
+                    Is.EqualTo(new Vector2(1.5f, 1.5f)));
+                Assert.That(
+                    first.Palette.Tiles[0].ContentRect.width,
+                    Is.EqualTo(0.875f).Within(0.0001f));
                 Assert.That(first.Palette.UsesSingleTexture(), Is.True);
                 string redId = first.Palette.Tiles[0].Id;
                 string greenId = first.Palette.Tiles[1].Id;

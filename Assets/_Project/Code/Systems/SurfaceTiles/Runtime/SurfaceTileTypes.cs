@@ -13,6 +13,16 @@ namespace Project.SurfaceTiles
         Bottom = 5
     }
 
+    public enum SurfaceTileAnchor
+    {
+        BottomLeft = 0,
+        Center = 1,
+        BottomEdge = 2,
+        TopEdge = 3,
+        LeftEdge = 4,
+        RightEdge = 5
+    }
+
     [Serializable]
     public sealed class SurfaceTilePlacement
     {
@@ -22,6 +32,8 @@ namespace Project.SurfaceTiles
         [SerializeField, Range(0, 3)] private int quarterTurns;
         [SerializeField] private bool flipX;
         [SerializeField] private bool flipY;
+        [SerializeField] private SurfaceTileAnchor anchor;
+        [SerializeField] private int layer;
 
         public SurfaceTileFace Face => face;
         public Vector2Int Cell => cell;
@@ -29,6 +41,8 @@ namespace Project.SurfaceTiles
         public int QuarterTurns => quarterTurns;
         public bool FlipX => flipX;
         public bool FlipY => flipY;
+        public SurfaceTileAnchor Anchor => anchor;
+        public int Layer => layer;
 
         public SurfaceTilePlacement(
             SurfaceTileFace valueFace,
@@ -37,6 +51,27 @@ namespace Project.SurfaceTiles
             int valueQuarterTurns,
             bool valueFlipX,
             bool valueFlipY)
+            : this(
+                valueFace,
+                valueCell,
+                valueTileId,
+                valueQuarterTurns,
+                valueFlipX,
+                valueFlipY,
+                SurfaceTileAnchor.BottomLeft,
+                0)
+        {
+        }
+
+        public SurfaceTilePlacement(
+            SurfaceTileFace valueFace,
+            Vector2Int valueCell,
+            string valueTileId,
+            int valueQuarterTurns,
+            bool valueFlipX,
+            bool valueFlipY,
+            SurfaceTileAnchor valueAnchor,
+            int valueLayer)
         {
             face = valueFace;
             cell = valueCell;
@@ -44,6 +79,8 @@ namespace Project.SurfaceTiles
             quarterTurns = Mathf.Abs(valueQuarterTurns) % 4;
             flipX = valueFlipX;
             flipY = valueFlipY;
+            anchor = valueAnchor;
+            layer = Mathf.Max(0, valueLayer);
         }
 
         public void SetTile(
@@ -56,6 +93,23 @@ namespace Project.SurfaceTiles
             quarterTurns = Mathf.Abs(valueQuarterTurns) % 4;
             flipX = valueFlipX;
             flipY = valueFlipY;
+        }
+
+        public void SetPlacement(
+            string valueTileId,
+            int valueQuarterTurns,
+            bool valueFlipX,
+            bool valueFlipY,
+            SurfaceTileAnchor valueAnchor,
+            int valueLayer)
+        {
+            SetTile(
+                valueTileId,
+                valueQuarterTurns,
+                valueFlipX,
+                valueFlipY);
+            anchor = valueAnchor;
+            layer = Mathf.Max(0, valueLayer);
         }
     }
 
@@ -95,6 +149,89 @@ namespace Project.SurfaceTiles
 
     public static class SurfaceTileGeometry
     {
+        public static Vector2 GetRotatedSize(
+            SurfaceTilePalette.Entry entry,
+            int quarterTurns)
+        {
+            Vector2 size = entry != null ? entry.SizeInCells : Vector2.one;
+            return Mathf.Abs(quarterTurns) % 2 == 0
+                ? size
+                : new Vector2(size.y, size.x);
+        }
+
+        public static Rect GetPlacementRect(
+            SurfaceTilePalette.Entry entry,
+            Vector2Int cell,
+            int quarterTurns,
+            SurfaceTileAnchor anchor)
+        {
+            Vector2 size = GetRotatedSize(entry, quarterTurns);
+            Vector2 origin;
+            switch (anchor)
+            {
+                case SurfaceTileAnchor.Center:
+                    origin = new Vector2(
+                        cell.x + 0.5f - size.x * 0.5f,
+                        cell.y + 0.5f - size.y * 0.5f);
+                    break;
+                case SurfaceTileAnchor.BottomEdge:
+                    origin = new Vector2(
+                        cell.x,
+                        cell.y);
+                    break;
+                case SurfaceTileAnchor.TopEdge:
+                    origin = new Vector2(
+                        cell.x,
+                        cell.y + 1f - size.y);
+                    break;
+                case SurfaceTileAnchor.LeftEdge:
+                    origin = new Vector2(
+                        cell.x,
+                        cell.y);
+                    break;
+                case SurfaceTileAnchor.RightEdge:
+                    origin = new Vector2(
+                        cell.x + 1f - size.x,
+                        cell.y);
+                    break;
+                default:
+                    origin = cell;
+                    break;
+            }
+
+            return new Rect(origin, size);
+        }
+
+        public static Rect GetPlacementRect(
+            SurfaceTilePalette.Entry entry,
+            SurfaceTilePlacement placement)
+        {
+            return placement == null
+                ? default
+                : GetPlacementRect(
+                    entry,
+                    placement.Cell,
+                    placement.QuarterTurns,
+                    placement.Anchor);
+        }
+
+        public static bool PlacementCoversCell(Rect placementRect, Vector2Int cell)
+        {
+            Rect cellRect = new Rect(cell.x, cell.y, 1f, 1f);
+            return placementRect.xMin < cellRect.xMax - 0.0001f &&
+                   placementRect.xMax > cellRect.xMin + 0.0001f &&
+                   placementRect.yMin < cellRect.yMax - 0.0001f &&
+                   placementRect.yMax > cellRect.yMin + 0.0001f;
+        }
+
+        public static bool PlacementFitsGrid(Rect placementRect, Vector2Int grid)
+        {
+            return placementRect.xMin >= -0.0001f &&
+                   placementRect.yMin >= -0.0001f &&
+                   placementRect.xMax <= grid.x + 0.0001f &&
+                   placementRect.yMax <= grid.y + 0.0001f;
+        }
+
         public static SurfaceTileFace FaceFromLocalNormal(Vector3 normal)
         {
             Vector3 absolute = new Vector3(
