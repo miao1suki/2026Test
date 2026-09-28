@@ -15,6 +15,10 @@ namespace Project.InputAbstraction
         [SerializeField]
         private InputPlatformMode platformMode = InputPlatformMode.Automatic;
 
+        [SerializeField]
+        [Tooltip("独立场景使用时保持跨场景；由常驻系统场景托管时应关闭。")]
+        private bool persistAcrossSceneLoads = true;
+
         private UnityInputSource unitySource;
         private IInputSource builtInSource;
         private IInputSource externalSource;
@@ -28,6 +32,11 @@ namespace Project.InputAbstraction
                 : actionAsset;
         public InputPlatformMode ConfiguredPlatformMode => platformMode;
         public InputPlatformMode ResolvedPlatformMode => InputPlatformResolver.Resolve(platformMode);
+
+        public void ConfigurePersistence(bool value)
+        {
+            persistAcrossSceneLoads = value;
+        }
 
         public static InputService EnsureInstance()
         {
@@ -70,7 +79,7 @@ namespace Project.InputAbstraction
             }
 
             instance = this;
-            if (Application.isPlaying)
+            if (Application.isPlaying && persistAcrossSceneLoads)
             {
                 DontDestroyOnLoad(gameObject);
             }
