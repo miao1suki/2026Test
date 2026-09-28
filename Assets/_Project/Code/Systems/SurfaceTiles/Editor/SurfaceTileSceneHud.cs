@@ -257,6 +257,8 @@ namespace Project.SurfaceTiles.Editor
                         ConfigureBlock(palette, null);
                     }
                 })));
+                body.Add(Button("导入不规则瓦片图…", () =>
+                    SurfaceTileSheetImporterWindow.OpenWindow()));
 
                 VisualElement transformRow = Row();
                 transformRow.Add(Button("↻ 旋转", () =>

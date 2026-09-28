@@ -39,6 +39,17 @@ namespace Project.SurfaceTiles
                     displayName = sprite.name;
                 }
             }
+
+            internal void UpdateSprite(Sprite value)
+            {
+                sprite = value;
+                if (value != null)
+                {
+                    displayName = value.name;
+                }
+
+                EnsureValid();
+            }
         }
 
         [SerializeField] private List<Entry> tiles = new List<Entry>();
@@ -118,6 +129,44 @@ namespace Project.SurfaceTiles
                     tiles.Add(new Entry(sprite));
                 }
             }
+        }
+
+        public void ReplaceTilesPreservingIds(IEnumerable<Sprite> sprites)
+        {
+            Dictionary<string, Entry> existing = new Dictionary<string, Entry>(
+                StringComparer.Ordinal);
+            for (int index = 0; index < tiles.Count; index++)
+            {
+                Entry entry = tiles[index];
+                if (entry != null && !string.IsNullOrWhiteSpace(entry.DisplayName))
+                {
+                    existing[entry.DisplayName] = entry;
+                }
+            }
+
+            List<Entry> replacement = new List<Entry>();
+            if (sprites != null)
+            {
+                foreach (Sprite sprite in sprites)
+                {
+                    if (sprite == null)
+                    {
+                        continue;
+                    }
+
+                    if (existing.TryGetValue(sprite.name, out Entry entry))
+                    {
+                        entry.UpdateSprite(sprite);
+                        replacement.Add(entry);
+                    }
+                    else
+                    {
+                        replacement.Add(new Entry(sprite));
+                    }
+                }
+            }
+
+            tiles = replacement;
         }
 
         public void SetPreviewMaterial(Material material)

@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using Project.SurfaceTiles.Editor;
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -272,6 +273,125 @@ namespace Project.SurfaceTiles.Tests
                 }
 
                 AssetDatabase.Refresh();
+            }
+        }
+
+        [Test]
+        public void IrregularImporter_DetectsSeparatedAlphaRegions()
+        {
+            Texture2D source = new Texture2D(12, 8, TextureFormat.RGBA32, false);
+            Color32[] pixels = new Color32[12 * 8];
+            PaintRect(pixels, 12, new RectInt(1, 1, 2, 2), Color.white);
+            PaintRect(pixels, 12, new RectInt(8, 4, 3, 2), Color.white);
+            source.SetPixels32(pixels);
+            source.Apply();
+
+            System.Collections.Generic.List<RectInt> regions =
+                SurfaceTileSheetGenerator.DetectRegions(
+                    source,
+                    0,
+                    2,
+                    0,
+                    0);
+
+            Assert.That(regions.Count, Is.EqualTo(2));
+            Assert.That(regions, Does.Contain(new RectInt(1, 1, 2, 2)));
+            Assert.That(regions, Does.Contain(new RectInt(8, 4, 3, 2)));
+            Object.DestroyImmediate(source);
+        }
+
+        [Test]
+        public void IrregularImporter_GeneratesUniformPersistentSpritesAndKeepsIds()
+        {
+            const string root = "Assets/__SurfaceTileImporterTest";
+            try
+            {
+                if (!AssetDatabase.IsValidFolder(root))
+                {
+                    AssetDatabase.CreateFolder("Assets", "__SurfaceTileImporterTest");
+                }
+
+                Texture2D source = new Texture2D(8, 4, TextureFormat.RGBA32, false);
+                Color32[] pixels = new Color32[8 * 4];
+                PaintRect(pixels, 8, new RectInt(0, 0, 2, 2), Color.red);
+                PaintRect(pixels, 8, new RectInt(5, 1, 3, 3), Color.green);
+                source.SetPixels32(pixels);
+                source.Apply();
+                string sourcePath = root + "/Source.png";
+                File.WriteAllBytes(Path.GetFullPath(sourcePath), source.EncodeToPNG());
+                Object.DestroyImmediate(source);
+                AssetDatabase.ImportAsset(
+                    sourcePath,
+                    ImportAssetOptions.ForceSynchronousImport);
+                Texture2D sourceAsset = AssetDatabase.LoadAssetAtPath<Texture2D>(
+                    sourcePath);
+
+                SurfaceTileSheetImportRecipe recipe =
+                    ScriptableObject.CreateInstance<SurfaceTileSheetImportRecipe>();
+                recipe.ConfigureSource(sourceAsset);
+                recipe.ConfigureOutput(
+                    root + "/Generated",
+                    "TestTiles",
+                    16,
+                    16,
+                    1,
+                    true,
+                    true,
+                    SurfaceTileOutputAnchor.Center);
+                recipe.Regions.Add(new SurfaceTileSourceRegion(
+                    "Red",
+                    new RectInt(0, 0, 3, 3)));
+                recipe.Regions.Add(new SurfaceTileSourceRegion(
+                    "Green",
+                    new RectInt(4, 0, 4, 4)));
+                AssetDatabase.CreateAsset(recipe, root + "/Recipe.asset");
+
+                Assert.That(
+                    SurfaceTileSheetGenerator.Generate(
+                        recipe,
+                        out SurfaceTileSheetGenerateResult first,
+                        out string firstError),
+                    Is.True,
+                    firstError);
+                Assert.That(first.TileCount, Is.EqualTo(2));
+                Assert.That(first.Palette.Tiles.Count, Is.EqualTo(2));
+                Assert.That(first.Palette.Tiles.All(item =>
+                    item.Sprite.rect.size == new Vector2(16f, 16f)), Is.True);
+                Assert.That(first.Palette.UsesSingleTexture(), Is.True);
+                string redId = first.Palette.Tiles[0].Id;
+                string greenId = first.Palette.Tiles[1].Id;
+
+                Assert.That(
+                    SurfaceTileSheetGenerator.Generate(
+                        recipe,
+                        out SurfaceTileSheetGenerateResult second,
+                        out string secondError),
+                    Is.True,
+                    secondError);
+                Assert.That(second.Palette.Tiles[0].Id, Is.EqualTo(redId));
+                Assert.That(second.Palette.Tiles[1].Id, Is.EqualTo(greenId));
+                Assert.That(second.Palette.PreviewMaterial, Is.Not.Null);
+                Assert.That(AssetDatabase.Contains(second.Palette.Tiles[0].Sprite), Is.True);
+            }
+            finally
+            {
+                AssetDatabase.DeleteAsset(root);
+                AssetDatabase.Refresh();
+            }
+        }
+
+        private static void PaintRect(
+            Color32[] pixels,
+            int width,
+            RectInt rect,
+            Color32 color)
+        {
+            for (int y = rect.yMin; y < rect.yMax; y++)
+            {
+                for (int x = rect.xMin; x < rect.xMax; x++)
+                {
+                    pixels[y * width + x] = color;
+                }
             }
         }
     }
