@@ -1,0 +1,78 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b1000000000000000000000000000003, type: 3}
+  m_Name: Achievement_9001_AllFeatures
+  m_EditorClassIdentifier: Project.Achievements.Runtime::Project.Achievements.AchievementSO
+  achievementId: 9001
+  displayName: "\u793A\u4F8B\u6210\u5C311"
+  description: "\u4E00\u6761\u8DEF\u9700\u8981\u4E24\u4E2A\u6761\u4EF6\u5168\u90E8\u8FBE\u6210\uFF0C\u53E6\u4E00\u6761\u8DEF\u4EFB\u610F\u4E00\u4E2A\u8FBE\u6210\u5373\u53EF\uFF0C\u5E76\u5305\u542B\u4E00\u4E2A\u5931\u8D25\u6761\u4EF6\u3002"
+  hidden: 0
+  platformAchievementId: EXAMPLE_ALL_FEATURES
+  conditions:
+  - conditionId: 0001
+    mode: 0
+    targetCount: 1
+    targetProgress: 100
+    textPrefix: "\u51FB\u8D25\u9996\u9886"
+    textSuffix: 
+    editorPosition: {x: -72.66667, y: 60.66667}
+  - conditionId: 0002
+    mode: 1
+    targetCount: 10
+    targetProgress: 100
+    textPrefix: "\u6536\u96C6\u91D1\u5E01"
+    textSuffix: "\u679A"
+    editorPosition: {x: -72.66667, y: 168.66666}
+  - conditionId: 0003
+    mode: 0
+    targetCount: 1
+    targetProgress: 100
+    textPrefix: "\u5B8C\u6210\u9690\u85CF\u6311\u6218"
+    textSuffix: 
+    editorPosition: {x: -60, y: 276}
+  - conditionId: 0004
+    mode: 2
+    targetCount: 1
+    targetProgress: 75
+    textPrefix: "\u5730\u56FE\u63A2\u7D22"
+    textSuffix: 
+    editorPosition: {x: -60, y: 388.6667}
+  - conditionId: 0005
+    mode: 0
+    targetCount: 1
+    targetProgress: 100
+    textPrefix: "\u5931\u53BB\u5168\u90E8\u751F\u547D"
+    textSuffix: 
+    editorPosition: {x: -60, y: 511.3333}
+  logicNodes:
+  - nodeId: L0001
+    logicType: 0
+    inputNodeIds:
+    - 0001
+    - 0002
+    editorPosition: {x: 204.66667, y: 100}
+  - nodeId: L0002
+    logicType: 1
+    inputNodeIds:
+    - 0003
+    - 0004
+    editorPosition: {x: 224, y: 300}
+  - nodeId: L0003
+    logicType: 1
+    inputNodeIds:
+    - L0001
+    - L0002
+    editorPosition: {x: 449.33334, y: 199.33334}
+  rootNodeId: L0003
+  lockConditionIds:
+  - 0005
+  rootEditorPosition: {x: 676.6667, y: 199.33334}
