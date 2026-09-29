@@ -211,6 +211,7 @@ namespace Project.CameraModes.Tests
                     false);
 
             Assert.That(controller.IsTransitioning, Is.True);
+            Assert.That(controller.IsSide2DYawTransitioning, Is.True);
 
             controller.Tick(0.4f);
             Assert.That(controller.Side2DYaw, Is.GreaterThan(0f));
@@ -218,6 +219,7 @@ namespace Project.CameraModes.Tests
 
             controller.Tick(1f);
             Assert.That(controller.IsTransitioning, Is.False);
+            Assert.That(controller.IsSide2DYawTransitioning, Is.False);
             Assert.That(controller.Side2DYaw, Is.EqualTo(90f).Within(0.001f));
 
             handle.Release(true);

@@ -629,11 +629,18 @@ namespace Project.PlatformPaths
             }
 
             ResolveReferences();
+            if (cameraModeController != null &&
+                cameraModeController.TargetMode == CameraViewMode.Side2D &&
+                cameraModeController.IsTransitioning)
+            {
+                return;
+            }
+
             RopeProjectionDirection currentDirection =
                 cameraModeController != null &&
                 cameraModeController.TargetMode == CameraViewMode.Side2D
                     ? RopeProjectionUtility.DirectionFromYaw(
-                        cameraModeController.TargetSide2DYaw)
+                        cameraModeController.Side2DYaw)
                     : network.CurrentProjectionDirection;
             if (network.CurrentProjectionDirection != currentDirection)
             {

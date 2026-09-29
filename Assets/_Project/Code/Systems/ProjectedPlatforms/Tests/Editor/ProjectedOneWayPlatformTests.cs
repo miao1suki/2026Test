@@ -13,6 +13,7 @@ namespace Project.ProjectedPlatforms.Tests
         public Rigidbody Body { get; set; }
         public RopeProjectionDirection Direction { get; set; }
         public bool Active { get; set; }
+        public bool AcceptAlignment { get; set; } = true;
 
         public Rigidbody ProjectedPlatformBody => Body;
         public RopeProjectionDirection ProjectedPlatformDirection =>
@@ -28,10 +29,13 @@ namespace Project.ProjectedPlatforms.Tests
             LastAlignment = alignment;
             if (Body != null)
             {
-                Body.position = alignment.WorldPosition;
+                if (AcceptAlignment)
+                {
+                    Body.position = alignment.WorldPosition;
+                }
             }
 
-            return true;
+            return AcceptAlignment;
         }
     }
 
@@ -209,6 +213,9 @@ namespace Project.ProjectedPlatforms.Tests
             Bounds tooHigh = new Bounds(
                 new Vector3(0f, 3f, 20f),
                 Vector3.one);
+            Bounds headTouchingFromBelow = new Bounds(
+                new Vector3(0f, -0.25f, 20f),
+                new Vector3(1f, 1.5f, 1f));
 
             Assert.That(ProjectedOneWayPlatform.CanAlignProjectedLanding(
                 platform,
@@ -228,6 +235,80 @@ namespace Project.ProjectedPlatforms.Tests
                 -1f,
                 0.08f,
                 RopeProjectionDirection.Front), Is.False);
+            Assert.That(ProjectedOneWayPlatform.CanAlignProjectedLanding(
+                platform,
+                headTouchingFromBelow,
+                0f,
+                0.08f,
+                RopeProjectionDirection.Front), Is.False);
+        }
+
+        [Test]
+        public void FootContactRejectsBodyAndHeadOverlap()
+        {
+            Bounds platform = new Bounds(Vector3.zero, new Vector3(4f, 1f, 2f));
+            Bounds feetAtTop = new Bounds(
+                new Vector3(0f, 1f, 0f),
+                Vector3.one);
+            Bounds bodyAcrossTop = new Bounds(
+                new Vector3(0f, 0.5f, 0f),
+                new Vector3(1f, 2f, 1f));
+
+            Assert.That(ProjectedOneWayPlatform.IsFootAtSupportTop(
+                platform,
+                feetAtTop,
+                0.08f,
+                0.12f), Is.True);
+            Assert.That(ProjectedOneWayPlatform.IsFootAtSupportTop(
+                platform,
+                bodyAcrossTop,
+                0.08f,
+                0.12f), Is.False);
+        }
+
+        [Test]
+        public void DeferredTurnAlignmentWaitsThenLandsOnPhysicalPlatform()
+        {
+            GameObject platformObject = GameObject.CreatePrimitive(
+                PrimitiveType.Cube);
+            GameObject actorObject = new GameObject("Actor");
+            try
+            {
+                platformObject.transform.position = new Vector3(4f, 0f, 9f);
+                ProjectedOneWayPlatform platform =
+                    platformObject.AddComponent<ProjectedOneWayPlatform>();
+                platform.EnsureSetup();
+
+                actorObject.transform.position = new Vector3(4f, 1f, -12f);
+                Rigidbody body = actorObject.AddComponent<Rigidbody>();
+                body.isKinematic = true;
+                BoxCollider actorCollider =
+                    actorObject.AddComponent<BoxCollider>();
+                ProjectedPlatformTestActor actor =
+                    actorObject.AddComponent<ProjectedPlatformTestActor>();
+                actor.Body = body;
+                actor.Active = true;
+                actor.AcceptAlignment = false;
+                actor.Direction = RopeProjectionDirection.Front;
+
+                Physics.SyncTransforms();
+                platform.RegisterCandidate(actorCollider);
+
+                Assert.That(body.position.z, Is.EqualTo(-12f).Within(0.001f));
+
+                actor.AcceptAlignment = true;
+                actor.Direction = RopeProjectionDirection.Right;
+                Physics.SyncTransforms();
+                platform.RegisterCandidate(actorCollider);
+
+                Assert.That(body.position.x, Is.EqualTo(4f).Within(0.001f));
+                Assert.That(body.position.z, Is.EqualTo(9f).Within(0.001f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(actorObject);
+                Object.DestroyImmediate(platformObject);
+            }
         }
     }
 }

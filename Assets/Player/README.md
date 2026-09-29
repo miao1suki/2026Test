@@ -224,6 +224,8 @@ Assets/Player/TimelineSO
 `IProjectedPlatformAlignmentReceiver` 把刚体沿当前不可见纵深轴移动到实体平台中心。
 横向画面位置和高度不会改变。移动平台随后仍由原有 `PlatformRider`
 挂接到 `__RiderAnchor`，所以视角变化、返回 3D 和平台移动共用同一套真实落位结果。
+落位只接受脚底接近平台顶面的下降接触；头部、身体侧面和从下向上穿越不会吸附。
+相机缓动转向期间会保留原投影承载与玩家纵深，缓动完成后才在新视角的不可见轴上校正。
 
 ## 梯子接口
 

@@ -134,6 +134,7 @@ namespace Project.CameraModes
         public float TargetSide2DYaw => yawTransitionActive
             ? yawTransitionTo
             : side2D.yawDegrees;
+        public bool IsSide2DYawTransitioning => yawTransitionActive;
         public float ModeTransitionDuration => transition.duration;
         public CameraTransition ModeTransition => BuildTransition();
         public bool IsTransitioning =>

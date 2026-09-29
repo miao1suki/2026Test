@@ -178,6 +178,7 @@ namespace Project.Player
         {
             if (motor == null ||
                 !IsProjectedPlatformModeActive ||
+                cameraMode.IsTransitioning ||
                 alignment.PlatformCollider == null)
             {
                 return false;
@@ -808,14 +809,15 @@ namespace Project.Player
         private void Sync2DDirectionFromCamera()
         {
             if (cameraMode == null ||
-                cameraMode.TargetMode != CameraViewMode.Side2D)
+                cameraMode.TargetMode != CameraViewMode.Side2D ||
+                cameraMode.IsTransitioning)
             {
                 return;
             }
 
             RopeProjectionDirection cameraDirection =
                 RopeProjectionUtility.DirectionFromYaw(
-                    cameraMode.TargetSide2DYaw);
+                    cameraMode.Side2DYaw);
             if (cameraDirection == projectionDirection)
             {
                 return;

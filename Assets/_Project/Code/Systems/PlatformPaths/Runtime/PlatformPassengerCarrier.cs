@@ -6,6 +6,9 @@ namespace Project.PlatformPaths
 {
     internal sealed class PlatformPassengerCarrier
     {
+        private const float FootPenetrationTolerance = 0.08f;
+        private const float FootAboveTolerance = 0.12f;
+
         private readonly HashSet<Transform> passengers =
             new HashSet<Transform>();
 
@@ -73,22 +76,23 @@ namespace Project.PlatformPaths
                 return;
             }
 
+            Bounds passengerBounds = ResolvePassengerBounds(
+                passenger,
+                collider);
+            if (!ProjectedOneWayPlatform.IsFootAtSupportTop(
+                    platformCollider.bounds,
+                    passengerBounds,
+                    FootPenetrationTolerance,
+                    FootAboveTolerance))
+            {
+                return;
+            }
+
             if (supportCollider != null)
             {
                 ProjectedOneWayPlatform projectedPlatform =
                     supportCollider.GetComponentInParent<ProjectedOneWayPlatform>();
                 projectedPlatform?.TryAlignCandidateToPhysicalDepth(collider);
-            }
-
-            CapsuleCollider capsule =
-                passenger.GetComponent<CapsuleCollider>();
-            Bounds passengerBounds = capsule != null
-                ? capsule.bounds
-                : collider.bounds;
-            if (passengerBounds.min.y >
-                platformCollider.bounds.max.y + 0.12f)
-            {
-                return;
             }
 
             float footOffset =
@@ -150,9 +154,7 @@ namespace Project.PlatformPaths
             {
                 Collider collider = overlapBuffer[index];
                 if (collider == null ||
-                    !IsPassengerCollider(collider) ||
-                    collider.bounds.min.y >
-                    bounds.max.y + 0.12f)
+                    !IsPassengerCollider(collider))
                 {
                     continue;
                 }
@@ -160,6 +162,19 @@ namespace Project.PlatformPaths
                 Transform passenger =
                     ResolvePassengerTransform(collider);
                 if (passenger == null)
+                {
+                    continue;
+                }
+
+
+                Bounds passengerBounds = ResolvePassengerBounds(
+                    passenger,
+                    collider);
+                if (!ProjectedOneWayPlatform.IsFootAtSupportTop(
+                        bounds,
+                        passengerBounds,
+                        FootPenetrationTolerance,
+                        FootAboveTolerance))
                 {
                     continue;
                 }
@@ -257,6 +272,18 @@ namespace Project.PlatformPaths
             return body != null
                 ? body.transform
                 : collider.transform.root;
+        }
+
+        private static Bounds ResolvePassengerBounds(
+            Transform passenger,
+            Collider fallbackCollider)
+        {
+            CapsuleCollider capsule = passenger != null
+                ? passenger.GetComponent<CapsuleCollider>()
+                : null;
+            return capsule != null
+                ? capsule.bounds
+                : fallbackCollider.bounds;
         }
 
         private static PlatformRider PassengerRider(

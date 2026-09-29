@@ -19,6 +19,8 @@ namespace Project.ProjectedPlatforms
             public bool proxyIgnored;
             public bool depthAligned;
             public RopeProjectionDirection alignedDirection;
+            public bool pendingDepthAlignment;
+            public RopeProjectionDirection pendingDirection;
         }
 
         [SerializeField]
@@ -485,6 +487,7 @@ namespace Project.ProjectedPlatforms
                 if (ignoreProxy)
                 {
                     contact.depthAligned = false;
+                    contact.pendingDepthAlignment = false;
                 }
                 else
                 {
@@ -496,6 +499,7 @@ namespace Project.ProjectedPlatforms
             }
 
             contact.depthAligned = false;
+            contact.pendingDepthAlignment = false;
 
             bool keepOriginalIgnored = ShouldIgnoreCollision(
                 false,
@@ -541,12 +545,23 @@ namespace Project.ProjectedPlatforms
             float verticalVelocity = body != null
                 ? body.linearVelocity.y
                 : 0f;
-            if (!CanAlignProjectedLanding(
+            bool completingDeferredTurn =
+                contact.pendingDepthAlignment &&
+                contact.pendingDirection != direction;
+            bool canAlign = completingDeferredTurn
+                ? verticalVelocity <= 0.05f &&
+                  IsFootAtSupportTop(
+                      platformBounds,
+                      actorBounds,
+                      landingTolerance,
+                      landingTolerance)
+                : CanAlignProjectedLanding(
                     platformBounds,
                     actorBounds,
                     verticalVelocity,
                     landingTolerance,
-                    direction))
+                    direction);
+            if (!canAlign)
             {
                 return false;
             }
@@ -558,6 +573,14 @@ namespace Project.ProjectedPlatforms
                 actorPosition,
                 platformBounds.center,
                 direction);
+            if (completingDeferredTurn)
+            {
+                alignedPosition = AlignPositionToPlatformDepth(
+                    alignedPosition,
+                    platformBounds.center,
+                    contact.pendingDirection);
+            }
+
             bool accepted = receiver.TryAlignProjectedPlatformDepth(
                 new ProjectedPlatformAlignment(
                     platformCollider,
@@ -567,6 +590,12 @@ namespace Project.ProjectedPlatforms
             {
                 contact.depthAligned = true;
                 contact.alignedDirection = direction;
+                contact.pendingDepthAlignment = false;
+            }
+            else
+            {
+                contact.pendingDepthAlignment = true;
+                contact.pendingDirection = direction;
             }
 
             return accepted;
@@ -580,10 +609,12 @@ namespace Project.ProjectedPlatforms
             RopeProjectionDirection direction)
         {
             float safeTolerance = Mathf.Max(0.01f, tolerance);
-            float top = platformBounds.max.y;
             if (verticalVelocity > 0.05f ||
-                actorBounds.min.y > top + safeTolerance ||
-                actorBounds.max.y < top - safeTolerance)
+                !IsFootAtSupportTop(
+                    platformBounds,
+                    actorBounds,
+                    safeTolerance,
+                    safeTolerance))
             {
                 return false;
             }
@@ -597,6 +628,17 @@ namespace Project.ProjectedPlatforms
 
             return actorBounds.max.x >= platformBounds.min.x - safeTolerance &&
                    actorBounds.min.x <= platformBounds.max.x + safeTolerance;
+        }
+
+        public static bool IsFootAtSupportTop(
+            Bounds supportBounds,
+            Bounds actorBounds,
+            float belowTolerance,
+            float aboveTolerance)
+        {
+            float footGap = actorBounds.min.y - supportBounds.max.y;
+            return footGap >= -Mathf.Max(0f, belowTolerance) &&
+                   footGap <= Mathf.Max(0f, aboveTolerance);
         }
 
         private void ClearIgnored(Contact contact)
