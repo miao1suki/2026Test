@@ -164,6 +164,38 @@ Jump 已绑定 ActSO：内置物理跳跃停用，改为播放 Timeline
 
 基础移动和纯状态交互不需要 `ActSO`；只有需要完整 Timeline 序列的动作才建议绑定。
 
+## 场景交互
+
+`PlayerController` 会确保玩家身上存在 `PlayerInteractionSensor`。它统一读取
+`InputActionId.Interact`，只在玩家处于 `Normal` 状态时寻找最近的可交互对象，
+并调用对象的 `IInteractionTarget.TryInteract`。
+
+当前 `Interact` 有两条互斥路径：
+
+```text
+绑定了 ActSO：优先播放玩家 Timeline 动作，不触发场景交互对象。
+没有绑定 ActSO：由 PlayerInteractionSensor 触发附近的 IInteractionTarget。
+```
+
+场景按钮不需要也不应该直接读取 `GameInput`。它只实现 `IInteractionTarget`，
+负责判断自己当前是否可交互，以及执行自己的玩法功能。
+
+## 成就信号
+
+玩家通过 `GameplaySignalHub` 发出以下信号，不直接引用成就系统：
+
+```text
+PlayerJumped
+PlayerLanded
+PlayerActionStarted
+PlayerActionCompleted
+LadderClimbStarted
+LadderClimbEnded
+```
+
+在玩家物体上添加 `AchievementSignalBridge`，把信号来源指向
+`PlayerController`，即可在成就检测器中选择这些信号。
+
 ## Timeline 信号
 
 `PlayerController` 预留了通用入口：

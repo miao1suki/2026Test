@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Project.InputAbstraction;
 using UnityEngine;
 
 namespace Project.CameraModes
@@ -343,6 +344,9 @@ namespace Project.CameraModes
                 isTransitioning = false;
                 ApplyStableState(currentState);
                 TransitionCompleted?.Invoke(new CameraControlHandle(this, activeRequest.id));
+                GameplaySignalHub.Emit(
+                    AchievementSignalIds.CameraTransitionCompleted,
+                    gameObject);
             }
             else
             {
@@ -501,6 +505,9 @@ namespace Project.CameraModes
             isTransitioning = false;
             ApplyStableState(currentState);
             TransitionCompleted?.Invoke(new CameraControlHandle(this, activeRequest.id));
+            GameplaySignalHub.Emit(
+                AchievementSignalIds.CameraTransitionCompleted,
+                gameObject);
         }
 
         private static void SanitizeState(ref CameraState state)

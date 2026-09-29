@@ -4,7 +4,8 @@
   "references": [
     "Project.RopePaths.Runtime",
     "Project.CameraModes.Runtime",
-    "Project.ProjectedPlatforms.Runtime"
+    "Project.ProjectedPlatforms.Runtime",
+    "Project.InputAbstraction.Runtime"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

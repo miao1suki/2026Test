@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using Project.Achievements;
 using Project.CameraModes;
+using Project.InputAbstraction;
 using Project.PlatformPaths;
 using Project.Player;
 using Project.RopePaths;
@@ -55,7 +57,7 @@ public static class RopeDemoSceneBuilder
             "RopeDemo_Platform.mat",
             new Color(1f, 0.42f, 0.02f, 1f));
         Material plateMaterial = GetOrCreateMaterial(
-            "RopeDemo_PressurePlate.mat",
+            "RopeDemo_InteractButton.mat",
             new Color(1f, 0.02f, 0.32f, 1f));
 
         GameObject root = new GameObject("RopeDemoRoot");
@@ -259,8 +261,8 @@ public static class RopeDemoSceneBuilder
             return;
         }
 
-        GameObject plateObject = CreatePressurePlate(
-            track.Name + "_PressurePlate",
+        GameObject plateObject = CreateProjectedInteractButton(
+            track.Name + "_InteractButton",
             track.Forward * 3f,
             track.Platforms.ToArray(),
             plateMaterial);
@@ -307,7 +309,7 @@ public static class RopeDemoSceneBuilder
         return platformMove;
     }
 
-    private static GameObject CreatePressurePlate(
+    private static GameObject CreateProjectedInteractButton(
         string name,
         Vector3 position,
         PlatformMove[] platforms,
@@ -320,8 +322,18 @@ public static class RopeDemoSceneBuilder
         plateObject.transform.localScale =
             new Vector3(2.2f, 0.2f, 2.2f);
         ApplyMaterial(plateObject, material);
-        PressurePlate plate =
-            plateObject.AddComponent<PressurePlate>();
+        ProjectedInteractButton plate =
+            plateObject.AddComponent<ProjectedInteractButton>();
+        AchievementSignalBridge bridge =
+            plateObject.AddComponent<AchievementSignalBridge>();
+        SerializedObject bridgeSerialized =
+            new SerializedObject(bridge);
+        bridgeSerialized.FindProperty("signalProvider")
+            .objectReferenceValue = plate;
+        bridgeSerialized.FindProperty("signalId")
+            .stringValue =
+            AchievementSignalIds.InteractButtonActivated;
+        bridgeSerialized.ApplyModifiedPropertiesWithoutUndo();
         SerializedObject serialized =
             new SerializedObject(plate);
         SerializedProperty platformArray =
@@ -337,10 +349,10 @@ public static class RopeDemoSceneBuilder
 
         serialized.FindProperty("playerTag")
             .stringValue = "Player";
-        serialized.FindProperty("checkHeight")
-            .floatValue = 0.8f;
-        serialized.FindProperty("checkWidth")
-            .floatValue = 0.9f;
+        serialized.FindProperty("interactionRange")
+            .floatValue = 1.5f;
+        serialized.FindProperty("require2DFaceMatch")
+            .boolValue = true;
         serialized.ApplyModifiedPropertiesWithoutUndo();
         return plateObject;
     }

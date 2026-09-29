@@ -107,6 +107,21 @@ flow.ActiveSceneChanged += OnActiveSceneChanged;
 跨系统初始化服务可实现 `IGameSystemService` 并放在对应系统场景的
 `GameSystemSceneRoot` 子物体中。服务会按 `InitializationOrder` 从小到大执行一次。
 
+## 成就信号
+
+游戏流程通过 `GameplaySignalHub` 发出以下信号：
+
+```text
+GameStarted
+GamePaused
+GameResumed
+LevelGoalReached
+```
+
+`GameStarted` 在开始游戏请求发出时产生；暂停和恢复只在状态实际变化后产生；
+`LevelGoalReached` 在关卡目标第一次开始完成流程时产生。流程系统不直接调用成就
+管理器，成就侧通过 `AchievementSignalBridge` 和 `AchievementDetector` 接收。
+
 ## UI 是否要与 Play 场景拆分
 
 这里采用拆分。全局菜单、HUD、加载遮罩和结束页保持在 `Systems_UI`，能避免每个

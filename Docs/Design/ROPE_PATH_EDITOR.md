@@ -93,6 +93,33 @@ Transform 或编辑器程序集：
 
 项目当前的 `PlatformMove` 已接入上述协议，并会自动添加正交投影承载组件。因此沿绳移动的平台与普通方块使用同一套视差落脚规则，详见 [正交视角单向平台](PROJECTED_ONE_WAY_PLATFORMS.md)。
 
+### 投影交互按钮
+
+`ProjectedInteractButton` 用于让玩家靠近后按交互键触发平台。按钮不自己读取输入，
+而是实现 `IInteractionTarget`，由玩家侧的 `PlayerInteractionSensor` 统一仲裁和调用：
+
+- 玩家必须进入 `交互距离`。
+- 3D 视角下按实际距离判断。
+- 2D 视角下按 `CameraModeController` 当前朝向计算按钮和玩家的投影位置。
+- 如果切换到另一面后两者在画面上不再相邻，按钮不可触发。
+- 触发后调用绑定平台的 `ReceiveButtonSignal`。
+
+因此按钮和平台仍然是解耦的：按钮只负责发出信号，平台自己决定如何移动到
+目标端点、等待和恢复游荡。
+
+平台会通过 `GameplaySignalHub` 发出以下信号，成就侧可选择需要监听的项目：
+
+```text
+PlatformButtonSignalReceived
+PlatformButtonSignalCanceled
+PlatformMovementStarted
+PlatformMovementStopped
+PlatformReachedButtonTarget
+PassengerBoarded
+PassengerLeft
+ProjectionTeleport
+```
+
 如果 `TryGetNext` 返回 false，说明当前端点没有接续绳子。平台系统可以按自己的规则
 停留或回退；编辑器不会替它决定移动行为。
 

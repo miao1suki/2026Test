@@ -26,6 +26,9 @@ namespace Project.Player.Editor
                 "【控制权】\n" +
                 "PushControlLock / PopControlLock / SetControlLocked 用于过场或外部系统暂时接管；" +
                 "Timeline Signal 可以直接调用 ReceiveTimelineSignal，或调用以后新增的具体信号方法。\n\n" +
+                "【交互与成就信号】\n" +
+                "Interact 未绑定 ActSO 时由 PlayerInteractionSensor 查找最近的可交互对象；" +
+                "然后向 GameplaySignalHub 发出跳跃、落地、动作开始/完成和攀爬信号。\n\n" +
                 "【注意】\n" +
                 "CameraModeController 仍是 2D/3D 唯一权威；这里只提交视角申请，不直接写 Camera。");
 

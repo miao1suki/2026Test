@@ -21,10 +21,21 @@ namespace Project.Player
     [RequireComponent(typeof(PlayerActionRunner))]
     public sealed class PlayerController :
         MonoBehaviour,
+        IAchievementSignalProvider,
         ILadderClimbStateReceiver,
         IProjectedPlatformActor,
         IProjectedPlatformAlignmentReceiver
     {
+        private static readonly string[] AchievementSignals =
+        {
+            AchievementSignalIds.PlayerJumped,
+            AchievementSignalIds.PlayerLanded,
+            AchievementSignalIds.PlayerActionStarted,
+            AchievementSignalIds.PlayerActionCompleted,
+            AchievementSignalIds.LadderClimbStarted,
+            AchievementSignalIds.LadderClimbEnded
+        };
+
         [Header("Players")]
         [SerializeField]
         private Rigidbody motor;
@@ -150,9 +161,15 @@ namespace Project.Player
             stateMachine != null &&
             stateMachine.CurrentId == PlayerStateId.Action;
 
+        public IReadOnlyList<string> GetAchievementSignalIds()
+        {
+            return AchievementSignals;
+        }
+
         private void Awake()
         {
             ResolveReferences();
+            EnsureInteractionSensor();
             ResolveLadderNetworks();
             BuildActionMap();
             context = new PlayerStateContext(this, actionRunner);
@@ -171,6 +188,14 @@ namespace Project.Player
                 new PlayerLockedState());
             stateMachine.Start(PlayerStateId.Normal, context);
             Apply2DDirection();
+        }
+
+        private void EnsureInteractionSensor()
+        {
+            if (GetComponent<PlayerInteractionSensor>() == null)
+            {
+                gameObject.AddComponent<PlayerInteractionSensor>();
+            }
         }
 
         public bool TryAlignProjectedPlatformDepth(
@@ -255,6 +280,8 @@ namespace Project.Player
             if (started && stateMachine.CurrentId == PlayerStateId.Action)
             {
                 ActionStarted?.Invoke(action);
+                EmitAchievementSignal(
+                    AchievementSignalIds.PlayerActionStarted);
             }
 
             return started &&
@@ -485,6 +512,8 @@ namespace Project.Player
             SetVerticalVelocity(jumpSpeed);
             jumpBufferTimer = 0f;
             coyoteTimer = 0f;
+            EmitAchievementSignal(
+                AchievementSignalIds.PlayerJumped);
         }
 
         public void SetClimbing(bool climbing)
@@ -638,6 +667,8 @@ namespace Project.Player
             if (action != null)
             {
                 ActionCompleted?.Invoke(action);
+                EmitAchievementSignal(
+                    AchievementSignalIds.PlayerActionCompleted);
             }
         }
 
@@ -671,6 +702,8 @@ namespace Project.Player
 
             context.CurrentLadder = null;
             ReturnToNormal();
+            EmitAchievementSignal(
+                AchievementSignalIds.LadderClimbEnded);
         }
 
         private void TryEnterClimb()
@@ -704,6 +737,8 @@ namespace Project.Player
                     context))
             {
                 hasPendingLadderContact = false;
+                EmitAchievementSignal(
+                    AchievementSignalIds.LadderClimbStarted);
             }
         }
 
@@ -998,6 +1033,7 @@ namespace Project.Player
 
         private void RefreshGroundedState()
         {
+            bool wasGrounded = isGrounded;
             if (bodyCollider == null)
             {
                 isGrounded = false;
@@ -1032,6 +1068,19 @@ namespace Project.Player
                 ProbeGround(
                     bottom - transform.forward * radius * 0.7f,
                     distance);
+            if (!wasGrounded && isGrounded)
+            {
+                EmitAchievementSignal(
+                    AchievementSignalIds.PlayerLanded);
+            }
+        }
+
+        private void EmitAchievementSignal(
+            string signalId)
+        {
+            GameplaySignalHub.Emit(
+                signalId,
+                gameObject);
         }
 
         private bool ProbeGround(

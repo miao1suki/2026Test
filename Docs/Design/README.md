@@ -13,5 +13,6 @@ this directory for runtime assets.
 - [Cube surface tiles](SURFACE_TILE_PLATFORM_TOOL.md)
 - [Orthographic one-way platforms](PROJECTED_ONE_WAY_PLATFORMS.md)
 - [Input rebinding and trigger policies](../../Assets/_Project/Code/Systems/InputRebinding/README.md)
+- [Achievements and gameplay signal integration](../../Assets/_Project/Code/Systems/Achievements/README.md)
 - [Game bootstrap, additive scenes, and shared UI](GAME_FLOW_SCENES.md)
 - [Playable prototype, scene navigation, spawns, and goals](PLAYABLE_PROTOTYPE.md)

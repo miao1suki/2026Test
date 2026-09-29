@@ -13,8 +13,7 @@ MonoBehaviour:
   m_Name: AchievementCatalog
   m_EditorClassIdentifier: Project.Achievements.Runtime::Project.Achievements.AchievementCatalogSO
   achievements:
-  - {fileID: 11400000, guid: ff350bf27eb122f45a3eb9099187b863, type: 2}
   - {fileID: 11400000, guid: 6e47e9b909334c09a30c84c6b8120f21, type: 2}
-  catalogVersion: 4e253ef32aae2ab8ee1652bc279e8f02
+  catalogVersion: 9cfce70b24cecdd6c940171b467ae93e
   saveDirectoryOverride: 
   saveFileName: achievements.json

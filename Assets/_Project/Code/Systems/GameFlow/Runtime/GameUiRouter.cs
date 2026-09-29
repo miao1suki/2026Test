@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using Project.InputAbstraction;
 using UnityEngine;
 using UnityEngine.UI;
@@ -6,8 +7,18 @@ using UnityEngine.UI;
 namespace Project.GameFlow
 {
     [DisallowMultipleComponent]
-    public sealed class GameUiRouter : MonoBehaviour, IGameSystemService
+    public sealed class GameUiRouter :
+        MonoBehaviour,
+        IGameSystemService,
+        IAchievementSignalProvider
     {
+        private static readonly string[] AchievementSignals =
+        {
+            AchievementSignalIds.GameStarted,
+            AchievementSignalIds.GamePaused,
+            AchievementSignalIds.GameResumed
+        };
+
         [Header("Screens")]
         [SerializeField] private GameObject mainMenuScreen;
         [SerializeField] private GameObject gameplayHud;
@@ -40,6 +51,11 @@ namespace Project.GameFlow
         public bool IsInitialized { get; private set; }
         public bool IsPaused => isPaused;
         public GameObject PauseScreen => pauseScreen;
+
+        public IReadOnlyList<string> GetAchievementSignalIds()
+        {
+            return AchievementSignals;
+        }
 
         public void Configure(
             GameObject valueMainMenuScreen,
@@ -86,6 +102,9 @@ namespace Project.GameFlow
             PlayClick();
             SetPaused(false, false);
             Flow()?.RequestTransition(GameFlowSceneId.Level01);
+            GameplaySignalHub.Emit(
+                AchievementSignalIds.GameStarted,
+                gameObject);
         }
 
         public void OpenMainMenu()
@@ -127,6 +146,11 @@ namespace Project.GameFlow
             }
 
             isPaused = value;
+            GameplaySignalHub.Emit(
+                value
+                    ? AchievementSignalIds.GamePaused
+                    : AchievementSignalIds.GameResumed,
+                gameObject);
             Time.timeScale = value ? 0f : 1f;
             AudioListener.pause = value;
             SetActive(pauseScreen, value);

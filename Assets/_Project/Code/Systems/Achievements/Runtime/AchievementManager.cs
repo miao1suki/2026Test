@@ -454,6 +454,28 @@ namespace Project.Achievements
                 return false;
             }
 
+            if (condition.Mode !=
+                AchievementConditionMode.Trigger)
+            {
+                string value =
+                    condition.Mode ==
+                    AchievementConditionMode.Count
+                        ? conditionState.CurrentCount +
+                          "/" +
+                          condition.TargetCount
+                        : conditionState.CurrentProgress
+                              .ToString("0.#") +
+                          "/" +
+                          condition.TargetProgress
+                              .ToString("0.#") +
+                          "%";
+                Debug.Log(
+                    $"[AchievementManager] 条件进度：" +
+                    $"{achievement.DisplayName}（{achievement.AchievementId}）" +
+                    $" 条件 {conditionId} = {value}",
+                    achievement);
+            }
+
             if (achievement.IsLockCondition(conditionId) &&
                 conditionState.IsSatisfied)
             {
@@ -477,6 +499,10 @@ namespace Project.Achievements
             {
                 state.SetUnlocked(true);
                 SaveNow();
+                Debug.Log(
+                    $"[AchievementManager] 达成成就：" +
+                    $"{achievement.DisplayName}（{achievement.AchievementId}）",
+                    achievement);
                 AchievementUnlocked?.Invoke(achievement);
                 NotifyAchievementUnlocked(
                     achievement.DisplayName);

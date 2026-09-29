@@ -19,6 +19,9 @@
 - 绳子端点可以使用投影吸附或实体吸附。
 - 梯子只连接同一可见面族：正面/背面互连，左面/右面互连，正面不与侧面连接。
 - `检查并修复当前场景` 会收纳游离机关、补白膜和平台碰撞体、刷新路径缓存，并报告未绑定平台。
+- 需要按钮召唤时，在平台上开启 `按钮联动`，再用 `ProjectedInteractButton`
+  绑定该平台；玩家靠近按钮后由 `PlayerInteractionSensor` 统一处理交互键。
+- `ProjectedInteractButton` 成功触发后发出 `InteractButtonActivated` 成就信号。
 
 ## 运行时边界
 
@@ -27,6 +30,9 @@
 - 绳子运行时 API：见 [ROPE_PATH_EDITOR.md](ROPE_PATH_EDITOR.md)。
 - 梯子与玩家攀爬接口：见 [LADDER_PATHS.md](LADDER_PATHS.md)。
 - 平台通过 `RopePlatform` 获取绑定的 `RopePathNetwork`、`RopeSegment` 和端点；移动实现仍由平台程序负责。
+- 按钮通过 `ProjectedInteractButton` 发出信号，不直接操作平台的移动状态。
+- 平台通过 `GameplaySignalHub` 上报移动、载客、按钮目标和投影瞬移信号，不直接
+  引用成就系统。
 - 摄像机 2D/3D 切换保持独立：见 [CAMERA_CONTROL_MANAGER.md](CAMERA_CONTROL_MANAGER.md)。
 
 ## 场景协作

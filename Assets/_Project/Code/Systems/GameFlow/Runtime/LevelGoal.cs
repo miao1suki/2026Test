@@ -1,12 +1,21 @@
 using System.Collections;
+using System.Collections.Generic;
+using Project.InputAbstraction;
 using UnityEngine;
 
 namespace Project.GameFlow
 {
     [DisallowMultipleComponent]
     [RequireComponent(typeof(Collider))]
-    public sealed class LevelGoal : MonoBehaviour
+    public sealed class LevelGoal :
+        MonoBehaviour,
+        IAchievementSignalProvider
     {
+        private static readonly string[] AchievementSignals =
+        {
+            AchievementSignalIds.LevelGoalReached
+        };
+
         [SerializeField] private GameFlowSceneId nextScene = GameFlowSceneId.Level02;
         [SerializeField] private bool endsGame;
         [SerializeField, Min(0f)] private float transitionDelay = 0.35f;
@@ -18,6 +27,11 @@ namespace Project.GameFlow
         public GameFlowSceneId NextScene => nextScene;
         public bool EndsGame => endsGame;
         public bool IsCompleting => completing;
+
+        public IReadOnlyList<string> GetAchievementSignalIds()
+        {
+            return AchievementSignals;
+        }
 
         public void Configure(
             GameFlowSceneId valueNextScene,
@@ -39,6 +53,9 @@ namespace Project.GameFlow
             }
 
             completing = true;
+            GameplaySignalHub.Emit(
+                AchievementSignalIds.LevelGoalReached,
+                gameObject);
             StartCoroutine(CompleteRoutine());
             return true;
         }

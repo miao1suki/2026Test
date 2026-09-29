@@ -1,9 +1,20 @@
 using System;
+using System.Collections.Generic;
+using Project.InputAbstraction;
 using UnityEngine;
 
 [AddComponentMenu("TimelineKit/DamageableHealth")]
-public class DamageableHealth : MonoBehaviour, IDamageable
+public class DamageableHealth :
+    MonoBehaviour,
+    IDamageable,
+    IAchievementSignalProvider
 {
+    private static readonly string[] AchievementSignals =
+    {
+        AchievementSignalIds.DamageTaken,
+        AchievementSignalIds.EntityDied
+    };
+
     [Header("生命值")]
     [Tooltip("生命上限，用于 Heal/ResetHp 的封顶")]
     public float maxHp = 100f;
@@ -15,6 +26,11 @@ public class DamageableHealth : MonoBehaviour, IDamageable
     public float Hp => _hp;
 
     public bool IsDead => _hp <= 0f;
+
+    public IReadOnlyList<string> GetAchievementSignalIds()
+    {
+        return AchievementSignals;
+    }
 
     private void Awake()
     {
@@ -36,9 +52,15 @@ public class DamageableHealth : MonoBehaviour, IDamageable
             _hp = 0f;
         }
         onDamaged?.Invoke(amount, _hp);
+        GameplaySignalHub.Emit(
+            AchievementSignalIds.DamageTaken,
+            gameObject);
         if (_hp <= 0f)
         {
             onDeath?.Invoke();
+            GameplaySignalHub.Emit(
+                AchievementSignalIds.EntityDied,
+                gameObject);
         }
     }
 

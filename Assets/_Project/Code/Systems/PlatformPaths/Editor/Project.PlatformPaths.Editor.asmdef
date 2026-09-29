@@ -2,7 +2,8 @@
   "name": "Project.PlatformPaths.Editor",
   "rootNamespace": "Project.PlatformPaths.Editor",
   "references": [
-    "Project.PlatformPaths.Runtime"
+    "Project.PlatformPaths.Runtime",
+    "Project.CameraModes.Runtime"
   ],
   "includePlatforms": [
     "Editor"

@@ -182,7 +182,26 @@ public sealed class CutsceneCameraSource : MonoBehaviour, ICameraControlSource
 | `TransitionCompleted` | 某 Handle 的统一过渡完成 |
 | `ActiveControlName` / `ActivePriority` | 调试当前控制权 |
 
-## 8. 模块交付约定
+## 8. 成就信号
+
+`CameraModeController` 是 2D/3D 模式和平面朝向信号的唯一来源。其他模块不要为了
+成就或统计自行判断并重复发送这些信号：
+
+```text
+CameraModeChanged
+CameraTransitionStarted
+CameraTransitionCompleted
+CameraFaceFront
+CameraFaceRight
+CameraFaceBack
+CameraFaceLeft
+```
+
+切换开始和完成分别由模式控制器与 `CameraControlManager` 的统一过渡状态发出。
+平面朝向信号只在实际完成 2D 朝向变化后发出。相机系统只向
+`GameplaySignalHub` 发信号，不依赖成就系统。
+
+## 9. 模块交付约定
 
 负责跟随或演出的程序提交代码前应确认：
 

@@ -1,13 +1,23 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Project.InputAbstraction;
 using UnityEngine;
 using UnityEngine.Playables;
 
 [AddComponentMenu("TimelineKit/TimelineActorHost")]
 [RequireComponent(typeof(PlayableDirector))]
-public class TimelineActorHost : MonoBehaviour, ITimelineHitHost, ITimelineEffectHost
+public class TimelineActorHost :
+    MonoBehaviour,
+    ITimelineHitHost,
+    ITimelineEffectHost,
+    IAchievementSignalProvider
 {
+    private static readonly string[] AchievementSignals =
+    {
+        AchievementSignalIds.HitTarget
+    };
+
     [Header("命中扫描")]
     [Tooltip("判定发射锚点。命中盒从这里往外扫，留空则用角色自身位置")]
     public Transform attackPoint;
@@ -33,6 +43,11 @@ public class TimelineActorHost : MonoBehaviour, ITimelineHitHost, ITimelineEffec
     public event Action<bool> onHitWindowChanged;
     public event Action<HitInfo> onHitTarget;
     public event Action<TimelineHitData> onHitDataChanged;
+
+    public IReadOnlyList<string> GetAchievementSignalIds()
+    {
+        return AchievementSignals;
+    }
 
     public struct HitInfo
     {
@@ -184,6 +199,9 @@ public class TimelineActorHost : MonoBehaviour, ITimelineHitHost, ITimelineEffec
                 damage = _data.damage
             };
             onHitTarget?.Invoke(info);
+            GameplaySignalHub.Emit(
+                AchievementSignalIds.HitTarget,
+                gameObject);
         }
     }
 

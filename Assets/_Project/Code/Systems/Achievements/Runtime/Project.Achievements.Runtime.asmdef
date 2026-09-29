@@ -2,7 +2,8 @@
   "name": "Project.Achievements.Runtime",
   "rootNamespace": "Project.Achievements",
   "references": [
-    "Unity.UGUI"
+    "Unity.UGUI",
+    "Project.InputAbstraction.Runtime"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

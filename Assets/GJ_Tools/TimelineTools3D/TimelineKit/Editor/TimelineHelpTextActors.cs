@@ -19,6 +19,9 @@ public static class TimelineHelpTextActors
             "【事件】\n" +
             "· onDamaged(本次伤害, 剩余血量)：受伤和回血都会触发（回血时伤害值为负数）；\n" +
             "· onDeath：血量降到 0 时触发一次。\n\n" +
+            "【成就信号】\n" +
+            "受伤时发出 DamageTaken，死亡时发出 EntityDied；" +
+            "可以通过 AchievementSignalBridge 接入成就检测器。\n\n" +
             "【注意】\n" +
             "组件在 Awake 时若发现血量 ≤ 0，会用 maxHp 重置一次，" +
             "所以只在 Inspector 里改 maxHp、留空 _hp 也是安全的。\n\n" +
@@ -61,6 +64,8 @@ public static class TimelineHelpTextActors
             "· onHitWindowChanged(bool)：判定窗口开启 / 关闭；\n" +
             "· onHitTarget(HitInfo)：命中了某个目标；\n" +
             "· onHitDataChanged(TimelineHitData)：判定参数被 Timeline 刷新。\n\n" +
+            "【成就信号】\n" +
+            "成功命中目标后发出 HitTarget，可以通过 AchievementSignalBridge 接入成就检测器。\n\n" +
             "【接口】\n" +
             "实现 ITimelineHitHost（SetHitBox / ClearHitBox / DoHitScan）与 " +
             "ITimelineEffectHost（PlaySound / SpawnEffect / RecycleEffect），" +

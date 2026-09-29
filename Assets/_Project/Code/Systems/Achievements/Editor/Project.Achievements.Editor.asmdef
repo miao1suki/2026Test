@@ -3,6 +3,7 @@
   "rootNamespace": "Project.Achievements.Editor",
   "references": [
     "Project.Achievements.Runtime",
+    "Project.InputAbstraction.Runtime",
     "Unity.UGUI"
   ],
   "includePlatforms": [

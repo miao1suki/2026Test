@@ -142,7 +142,7 @@ namespace Project.Achievements.Editor
             shell.Add(content);
 
             VisualElement toolbar = new VisualElement();
-            toolbar.style.flexDirection = FlexDirection.Row;
+            toolbar.style.flexDirection = FlexDirection.Column;
             toolbar.style.marginBottom = 6f;
             toolbar.style.paddingLeft = 6f;
             toolbar.style.paddingRight = 6f;
@@ -156,14 +156,21 @@ namespace Project.Achievements.Editor
             toolbar.style.borderTopRightRadius = 6f;
             toolbar.style.borderBottomLeftRadius = 6f;
             toolbar.style.borderBottomRightRadius = 6f;
-            toolbar.Add(new Label("成就目录"));
+            VisualElement directoryRow = new VisualElement();
+            directoryRow.style.flexDirection = FlexDirection.Row;
+            directoryRow.style.flexWrap = Wrap.Wrap;
+            directoryRow.style.marginBottom = 4f;
+            VisualElement actionRow = new VisualElement();
+            actionRow.style.flexDirection = FlexDirection.Row;
+            actionRow.style.flexWrap = Wrap.Wrap;
+            directoryRow.Add(new Label("成就目录"));
             folderField = new TextField
             {
                 value = contentFolder
             };
             folderField.style.flexGrow = 1f;
-            toolbar.Add(folderField);
-            toolbar.Add(new Button(
+            directoryRow.Add(folderField);
+            directoryRow.Add(new Button(
                 () =>
                 {
                     string selectedFolder =
@@ -183,38 +190,44 @@ namespace Project.Achievements.Editor
             {
                 text = "浏览"
             });
-            toolbar.Add(new Button(RefreshAll)
+            directoryRow.Add(new Button(RefreshAll)
             {
                 text = "扫描"
             });
-            toolbar.Add(new Button(CreateAchievement)
+            directoryRow.Add(new Button(CreateAchievement)
             {
                 text = "新建"
             });
-            toolbar.Add(new Button(Validate)
+            actionRow.Add(new Button(Validate)
             {
                 text = "校验"
             });
-            toolbar.Add(new Button(RenumberConditions)
+            actionRow.Add(new Button(RenumberConditions)
             {
                 text = "整理条件编号"
             });
-            toolbar.Add(new Button(UpdateCatalog)
+            actionRow.Add(new Button(UpdateCatalog)
             {
                 text = "应用到游戏逻辑中"
             });
-            toolbar.Add(new Button(Undo.PerformUndo)
+            actionRow.Add(new Button(ResetSave)
+            {
+                text = "重置存档"
+            });
+            actionRow.Add(new Button(Undo.PerformUndo)
             {
                 text = "撤回"
             });
-            toolbar.Add(new Button(Undo.PerformRedo)
+            actionRow.Add(new Button(Undo.PerformRedo)
             {
                 text = "重做"
             });
-            toolbar.Add(new Button(SaveSelected)
+            actionRow.Add(new Button(SaveSelected)
             {
                 text = "保存"
             });
+            toolbar.Add(directoryRow);
+            toolbar.Add(actionRow);
             StyleToolbar(
                 toolbar);
             content.Add(toolbar);
@@ -1203,6 +1216,70 @@ namespace Project.Achievements.Editor
             saveFileNameField.SetValueWithoutNotify(
                 catalog.SaveFileName);
             UpdateSaveDirectoryHint();
+        }
+
+        private void ResetSave()
+        {
+            if (catalog == null)
+            {
+                LoadCatalog();
+            }
+
+            if (catalog == null)
+            {
+                EditorUtility.DisplayDialog(
+                    "重置成就存档",
+                    "没有找到成就目录，无法确定存档地址。",
+                    "确定");
+                return;
+            }
+
+            string filePath =
+                catalog.ResolveSaveFilePath();
+            if (!EditorUtility.DisplayDialog(
+                    "重置成就存档",
+                    "确定删除以下成就存档？\n\n" +
+                    filePath +
+                    "\n\n此操作无法撤销。",
+                    "重置",
+                    "取消"))
+            {
+                return;
+            }
+
+            try
+            {
+                AchievementSaveService saveService =
+                    new AchievementSaveService(catalog);
+                saveService.Clear();
+
+                if (Application.isPlaying)
+                {
+                    AchievementManager manager =
+                        UnityEngine.Object
+                            .FindFirstObjectByType<
+                                AchievementManager>();
+                    manager?.Reload();
+                }
+
+                Debug.Log(
+                    "[成就工具] 已重置成就存档：\n" +
+                    filePath);
+                EditorUtility.DisplayDialog(
+                    "重置成就存档",
+                    "成就存档已重置。",
+                    "确定");
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError(
+                    "[成就工具] 重置成就存档失败：\n" +
+                    exception);
+                EditorUtility.DisplayDialog(
+                    "重置成就存档失败",
+                    "请查看 Console。",
+                    "确定");
+            }
         }
 
         private void UpdateCatalogSettings()

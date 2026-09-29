@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Project.CameraModes;
+using Project.InputAbstraction;
 using Project.ProjectedPlatforms;
 using Project.RopePaths;
 using UnityEngine;
@@ -17,8 +18,22 @@ namespace Project.PlatformPaths
 
     [DisallowMultipleComponent]
     [RequireComponent(typeof(RopePlatform))]
-    public sealed class PlatformMove : MonoBehaviour
+    public sealed class PlatformMove :
+        MonoBehaviour,
+        IAchievementSignalProvider
     {
+        private static readonly string[] AchievementSignals =
+        {
+            AchievementSignalIds.PlatformButtonSignalReceived,
+            AchievementSignalIds.PlatformButtonSignalCanceled,
+            AchievementSignalIds.PlatformMovementStarted,
+            AchievementSignalIds.PlatformMovementStopped,
+            AchievementSignalIds.PlatformReachedButtonTarget,
+            AchievementSignalIds.PassengerBoarded,
+            AchievementSignalIds.PassengerLeft,
+            AchievementSignalIds.ProjectionTeleport
+        };
+
         [Header("引用")]
         [SerializeField]
         private RopePlatform ropePlatform;
@@ -141,6 +156,11 @@ namespace Project.PlatformPaths
         public CameraModeController CameraModeController =>
             cameraModeController;
 
+        public IReadOnlyList<string> GetAchievementSignalIds()
+        {
+            return AchievementSignals;
+        }
+
         private void Reset()
         {
             ropePlatform = GetComponent<RopePlatform>();
@@ -254,6 +274,8 @@ namespace Project.PlatformPaths
             movingToButtonTarget = true;
             waitingAtButtonTarget = false;
             buttonWaitTimer = 0f;
+            EmitAchievementSignal(
+                AchievementSignalIds.PlatformButtonSignalReceived);
         }
 
         public void CancelButtonSignal()
@@ -268,26 +290,45 @@ namespace Project.PlatformPaths
             movingToButtonTarget = false;
             waitingAtButtonTarget = false;
             StartWandering();
+            EmitAchievementSignal(
+                AchievementSignalIds.PlatformButtonSignalCanceled);
         }
 
         public void CapturePassenger(Collider collider)
         {
+            bool hadPassengers =
+                passengerCarrier.HasPassengers;
             passengerCarrier.Capture(
                 transform,
                 collider,
                 projectedSupport != null
                     ? projectedSupport.ActiveSupportCollider
                     : null);
+            if (!hadPassengers &&
+                passengerCarrier.HasPassengers)
+            {
+                EmitAchievementSignal(
+                    AchievementSignalIds.PassengerBoarded);
+            }
         }
 
         public void ReleasePassenger(Transform passenger)
         {
             passengerCarrier.Release(passenger);
+            EmitAchievementSignal(
+                AchievementSignalIds.PassengerLeft);
         }
 
         public void ReleaseAllPassengers()
         {
+            bool hadPassengers =
+                passengerCarrier.HasPassengers;
             passengerCarrier.ReleaseAll();
+            if (hadPassengers)
+            {
+                EmitAchievementSignal(
+                    AchievementSignalIds.PassengerLeft);
+            }
         }
 
         private void ResolveReferences()
@@ -486,6 +527,8 @@ namespace Project.PlatformPaths
                 movingToButtonTarget = false;
                 moving = false;
                 buttonWaitTimer = Mathf.Max(0f, buttonWaitDuration);
+                EmitAchievementSignal(
+                    AchievementSignalIds.PlatformReachedButtonTarget);
                 return;
             }
 
@@ -729,6 +772,8 @@ namespace Project.PlatformPaths
             transform.position =
                 segment.GetWorldEndpoint(endpoint);
             passengerCarrier.Carry(transform);
+            EmitAchievementSignal(
+                AchievementSignalIds.ProjectionTeleport);
         }
 
         private void ReturnToInitialPosition()
@@ -775,6 +820,8 @@ namespace Project.PlatformPaths
             buttonRoute = null;
             buttonRouteIndex = 0;
             buttonWaitTimer = 0f;
+            EmitAchievementSignal(
+                AchievementSignalIds.PlatformMovementStopped);
         }
 
         private void StartWandering()
@@ -786,6 +833,16 @@ namespace Project.PlatformPaths
             }
 
             moving = true;
+            EmitAchievementSignal(
+                AchievementSignalIds.PlatformMovementStarted);
+        }
+
+        private void EmitAchievementSignal(
+            string signalId)
+        {
+            GameplaySignalHub.Emit(
+                signalId,
+                gameObject);
         }
 
         private bool TryBuildRouteToNearestEndpoint(

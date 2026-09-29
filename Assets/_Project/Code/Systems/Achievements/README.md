@@ -9,6 +9,7 @@ Assets/_Project/Code/Systems/Achievements/
     AchievementSO.cs
     AchievementCatalogSO.cs
     AchievementDetector.cs
+    AchievementSignalBridge.cs
     AchievementTypes.cs
     AchievementSaveService.cs
     IAchievementUnlockReceiver.cs
@@ -18,6 +19,7 @@ Assets/_Project/Code/Systems/Achievements/
     AchievementSOEditor.cs
     AchievementManagerEditor.cs
     AchievementDetectorEditor.cs
+    AchievementSignalBridgeEditor.cs
     AchievementEditorHelp.cs
     AchievementEditorStyles.cs
     Graph/
@@ -106,6 +108,74 @@ ScrollRect.onValueChanged
 ```
 
 检测组件只负责转发信号，不判断成就是否完成。
+
+## 玩法信号接入
+
+玩法组件不直接引用成就系统。统一数据流如下：
+
+```text
+玩家 / 相机 / 平台 / 按钮 / 游戏流程 / 战斗
+    -> GameplaySignalHub.Emit
+    -> AchievementSignalBridge
+    -> AchievementDetector
+    -> AchievementManager
+```
+
+`GameplaySignalHub` 和 `AchievementSignalIds` 位于
+`Project.InputAbstraction.Runtime`，玩法程序集只需要依赖输入抽象程序集。
+`AchievementSignalBridge`、`AchievementDetector` 和 `AchievementManager`
+位于 `Project.Achievements.Runtime`，因此不存在玩法系统反向依赖成就系统的问题。
+
+通常的配置方式：
+
+1. 在发出信号的物体上添加 `AchievementSignalBridge`。
+2. 把“信号来源”指向同物体上的玩法组件；该组件会通过
+   `IAchievementSignalProvider` 提供可选择的信号列表。
+3. 在任意物体上添加 `AchievementDetector`，把“源组件”指向该 Bridge。
+4. 选择信号、成就、条件和增加量。
+5. Bridge 的信号来源留空时，会作为全局桥监听所有物体发出的同名信号。
+
+当前支持下拉选择的信号：
+
+```text
+PlayerJumped
+PlayerLanded
+PlayerActionStarted
+PlayerActionCompleted
+LadderClimbStarted
+LadderClimbEnded
+
+CameraModeChanged
+CameraTransitionStarted
+CameraTransitionCompleted
+CameraFaceFront
+CameraFaceRight
+CameraFaceBack
+CameraFaceLeft
+
+GameStarted
+GamePaused
+GameResumed
+LevelGoalReached
+
+InteractButtonActivated
+
+PlatformButtonSignalReceived
+PlatformButtonSignalCanceled
+PlatformMovementStarted
+PlatformMovementStopped
+PlatformReachedButtonTarget
+PassengerBoarded
+PassengerLeft
+ProjectionTeleport
+
+DamageTaken
+EntityDied
+HitTarget
+```
+
+`AchievementSignalBridge` 也提供 `Emit`、`EmitWithName`、`EmitWithCount`、
+`EmitWithProgress` 和 `EmitWithValues`，可供 UnityEvent 或以后新增的玩法脚本调用。
 
 ## 编辑器工具
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Project.InputAbstraction;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -10,9 +11,21 @@ namespace Project.CameraModes
     [DefaultExecutionOrder(100)]
     public sealed class CameraModeController :
         MonoBehaviour,
+        IAchievementSignalProvider,
         ICameraControlSource,
         ICameraViewModeAuthority
     {
+        private static readonly string[] AchievementSignals =
+        {
+            AchievementSignalIds.CameraModeChanged,
+            AchievementSignalIds.CameraTransitionStarted,
+            AchievementSignalIds.CameraTransitionCompleted,
+            AchievementSignalIds.CameraFaceFront,
+            AchievementSignalIds.CameraFaceRight,
+            AchievementSignalIds.CameraFaceBack,
+            AchievementSignalIds.CameraFaceLeft
+        };
+
         private sealed class ModeRequest
         {
             public int id;
@@ -156,6 +169,11 @@ namespace Project.CameraModes
                     ? cameraManager.GetTransitionProgress(controlHandle)
                     : 0f;
             }
+        }
+
+        public IReadOnlyList<string> GetAchievementSignalIds()
+        {
+            return AchievementSignals;
         }
 
         private void Reset()
@@ -477,6 +495,7 @@ namespace Project.CameraModes
                 {
                     onModeChanged.Invoke(mode);
                     ModeChanged?.Invoke(mode);
+                    EmitModeChangedSignal(mode);
                 }
             }
             cameraManager.ApplyViewModeAuthorityImmediately();
@@ -541,6 +560,7 @@ namespace Project.CameraModes
                 yawTransitionActive = false;
                 side2D.yawDegrees = normalizedTarget;
                 cameraManager.ApplyViewModeAuthorityImmediately();
+                EmitFaceSignal();
                 return;
             }
 
@@ -580,6 +600,7 @@ namespace Project.CameraModes
                     NormalizeYaw(yawTransitionTo);
                 yawTransitionActive = false;
                 yawTransitionCurve = null;
+                EmitFaceSignal();
             }
         }
 
@@ -607,6 +628,9 @@ namespace Project.CameraModes
             targetMode = mode;
             onTransitionStarted.Invoke(mode);
             TransitionStarted?.Invoke(mode);
+            GameplaySignalHub.Emit(
+                AchievementSignalIds.CameraTransitionStarted,
+                gameObject);
             cameraManager.Retarget(controlHandle, cameraTransition);
             if (cameraTransition.duration <= 0f)
             {
@@ -761,7 +785,52 @@ namespace Project.CameraModes
             {
                 onModeChanged.Invoke(currentMode);
                 ModeChanged?.Invoke(currentMode);
+                EmitModeChangedSignal(currentMode);
             }
+        }
+
+        private void EmitModeChangedSignal(
+            CameraViewMode mode)
+        {
+            GameplaySignalHub.Emit(
+                AchievementSignalIds.CameraModeChanged,
+                gameObject);
+            if (mode == CameraViewMode.Side2D)
+            {
+                EmitFaceSignal();
+            }
+        }
+
+        private void EmitFaceSignal()
+        {
+            int quarterTurns = Mathf.RoundToInt(
+                Side2DYaw / 90f);
+            quarterTurns =
+                ((quarterTurns % 4) + 4) % 4;
+            string signalId;
+            switch (quarterTurns)
+            {
+                case 1:
+                    signalId =
+                        AchievementSignalIds.CameraFaceRight;
+                    break;
+                case 2:
+                    signalId =
+                        AchievementSignalIds.CameraFaceBack;
+                    break;
+                case 3:
+                    signalId =
+                        AchievementSignalIds.CameraFaceLeft;
+                    break;
+                default:
+                    signalId =
+                        AchievementSignalIds.CameraFaceFront;
+                    break;
+            }
+
+            GameplaySignalHub.Emit(
+                signalId,
+                gameObject);
         }
 
         private CameraTransition BuildTransition()
