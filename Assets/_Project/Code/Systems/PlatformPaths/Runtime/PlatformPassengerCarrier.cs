@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Project.ProjectedPlatforms;
 using UnityEngine;
 
 namespace Project.PlatformPaths
@@ -70,6 +71,13 @@ namespace Project.PlatformPaths
             if (platformCollider == null)
             {
                 return;
+            }
+
+            if (supportCollider != null)
+            {
+                ProjectedOneWayPlatform projectedPlatform =
+                    supportCollider.GetComponentInParent<ProjectedOneWayPlatform>();
+                projectedPlatform?.TryAlignCandidateToPhysicalDepth(collider);
             }
 
             CapsuleCollider capsule =

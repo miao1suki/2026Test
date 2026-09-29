@@ -7,7 +7,8 @@ namespace Project.ProjectedPlatforms.Tests
 {
     internal sealed class ProjectedPlatformTestActor :
         MonoBehaviour,
-        IProjectedPlatformActor
+        IProjectedPlatformActor,
+        IProjectedPlatformAlignmentReceiver
     {
         public Rigidbody Body { get; set; }
         public RopeProjectionDirection Direction { get; set; }
@@ -17,6 +18,21 @@ namespace Project.ProjectedPlatforms.Tests
         public RopeProjectionDirection ProjectedPlatformDirection =>
             Direction;
         public bool IsProjectedPlatformModeActive => Active;
+        public int AlignmentCount { get; private set; }
+        public ProjectedPlatformAlignment LastAlignment { get; private set; }
+
+        public bool TryAlignProjectedPlatformDepth(
+            ProjectedPlatformAlignment alignment)
+        {
+            AlignmentCount++;
+            LastAlignment = alignment;
+            if (Body != null)
+            {
+                Body.position = alignment.WorldPosition;
+            }
+
+            return true;
+        }
     }
 
     public sealed class ProjectedOneWayPlatformTests
@@ -131,6 +147,87 @@ namespace Project.ProjectedPlatforms.Tests
                 Object.DestroyImmediate(actorObject);
                 Object.DestroyImmediate(platformObject);
             }
+        }
+
+        [Test]
+        public void LandingAlignsActorToPhysicalDepthAcrossViewChanges()
+        {
+            GameObject platformObject = GameObject.CreatePrimitive(
+                PrimitiveType.Cube);
+            GameObject actorObject = new GameObject("Actor");
+            try
+            {
+                platformObject.transform.position = new Vector3(4f, 0f, 9f);
+                ProjectedOneWayPlatform platform =
+                    platformObject.AddComponent<ProjectedOneWayPlatform>();
+                platform.EnsureSetup();
+
+                actorObject.transform.position = new Vector3(4f, 1f, -12f);
+                Rigidbody body = actorObject.AddComponent<Rigidbody>();
+                body.isKinematic = true;
+                BoxCollider actorCollider =
+                    actorObject.AddComponent<BoxCollider>();
+                ProjectedPlatformTestActor actor =
+                    actorObject.AddComponent<ProjectedPlatformTestActor>();
+                actor.Body = body;
+                actor.Active = true;
+                actor.Direction = RopeProjectionDirection.Front;
+
+                Physics.SyncTransforms();
+                platform.RegisterCandidate(actorCollider);
+
+                Assert.That(actor.AlignmentCount, Is.EqualTo(1));
+                Assert.That(body.position.x, Is.EqualTo(4f).Within(0.001f));
+                Assert.That(body.position.z, Is.EqualTo(9f).Within(0.001f));
+                Assert.That(
+                    actor.LastAlignment.PlatformCollider,
+                    Is.SameAs(platform.PlatformCollider));
+
+                body.position = new Vector3(-8f, 1f, 9f);
+                actor.Direction = RopeProjectionDirection.Right;
+                Physics.SyncTransforms();
+                platform.RegisterCandidate(actorCollider);
+
+                Assert.That(actor.AlignmentCount, Is.EqualTo(2));
+                Assert.That(body.position.x, Is.EqualTo(4f).Within(0.001f));
+                Assert.That(body.position.z, Is.EqualTo(9f).Within(0.001f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(actorObject);
+                Object.DestroyImmediate(platformObject);
+            }
+        }
+
+        [Test]
+        public void AlignmentOnlyCapturesDescendingActorAtProjectedTop()
+        {
+            Bounds platform = new Bounds(Vector3.zero, new Vector3(4f, 1f, 2f));
+            Bounds standing = new Bounds(
+                new Vector3(0f, 1f, 20f),
+                Vector3.one);
+            Bounds tooHigh = new Bounds(
+                new Vector3(0f, 3f, 20f),
+                Vector3.one);
+
+            Assert.That(ProjectedOneWayPlatform.CanAlignProjectedLanding(
+                platform,
+                standing,
+                -1f,
+                0.08f,
+                RopeProjectionDirection.Front), Is.True);
+            Assert.That(ProjectedOneWayPlatform.CanAlignProjectedLanding(
+                platform,
+                standing,
+                1f,
+                0.08f,
+                RopeProjectionDirection.Front), Is.False);
+            Assert.That(ProjectedOneWayPlatform.CanAlignProjectedLanding(
+                platform,
+                tooHigh,
+                -1f,
+                0.08f,
+                RopeProjectionDirection.Front), Is.False);
         }
     }
 }

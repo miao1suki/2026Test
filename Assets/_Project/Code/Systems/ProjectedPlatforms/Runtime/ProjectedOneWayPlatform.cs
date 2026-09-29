@@ -17,6 +17,8 @@ namespace Project.ProjectedPlatforms
             public IProjectedPlatformActor actor;
             public bool originalIgnored;
             public bool proxyIgnored;
+            public bool depthAligned;
+            public RopeProjectionDirection alignedDirection;
         }
 
         [SerializeField]
@@ -104,6 +106,60 @@ namespace Project.ProjectedPlatforms
             ProjectedPlatformDirections flag =
                 (ProjectedPlatformDirections)(1 << (int)direction);
             return (directions & flag) != 0;
+        }
+
+        public bool TryAlignCandidateToPhysicalDepth(Collider other)
+        {
+            if (other == null || platformCollider == null ||
+                projectionCollider == null ||
+                !projectionCollider.enabled)
+            {
+                return false;
+            }
+
+            if (!contacts.TryGetValue(other, out Contact contact))
+            {
+                if (!TryGetActor(other, out IProjectedPlatformActor actor))
+                {
+                    return false;
+                }
+
+                contact = new Contact
+                {
+                    collider = other,
+                    actor = actor,
+                };
+                contacts.Add(other, contact);
+            }
+
+            RopeProjectionDirection direction =
+                contact.actor.ProjectedPlatformDirection;
+            if (!contact.actor.IsProjectedPlatformModeActive ||
+                activeDirection != direction ||
+                !IsDirectionActive(direction))
+            {
+                return false;
+            }
+
+            return TryAlignContactDepth(contact, direction);
+        }
+
+        public static Vector3 AlignPositionToPlatformDepth(
+            Vector3 actorPosition,
+            Vector3 platformCenter,
+            RopeProjectionDirection direction)
+        {
+            Vector3 depth = RopeProjectionUtility.ViewDepth(direction);
+            if (Mathf.Abs(depth.x) > 0.5f)
+            {
+                actorPosition.x = platformCenter.x;
+            }
+            else
+            {
+                actorPosition.z = platformCenter.z;
+            }
+
+            return actorPosition;
         }
 
         public static bool ShouldIgnoreCollision(
@@ -426,8 +482,20 @@ namespace Project.ProjectedPlatforms
                     projectionCollider,
                     ref contact.proxyIgnored,
                     ignoreProxy);
+                if (ignoreProxy)
+                {
+                    contact.depthAligned = false;
+                }
+                else
+                {
+                    TryAlignContactDepth(
+                        contact,
+                        contact.actor.ProjectedPlatformDirection);
+                }
                 return;
             }
+
+            contact.depthAligned = false;
 
             bool keepOriginalIgnored = ShouldIgnoreCollision(
                 false,
@@ -447,6 +515,88 @@ namespace Project.ProjectedPlatforms
                 projectionCollider,
                 ref contact.proxyIgnored,
                 false);
+        }
+
+        private bool TryAlignContactDepth(
+            Contact contact,
+            RopeProjectionDirection direction)
+        {
+            if (contact == null || contact.collider == null ||
+                contact.actor == null ||
+                contact.actor is not IProjectedPlatformAlignmentReceiver receiver ||
+                platformCollider == null)
+            {
+                return false;
+            }
+
+            if (contact.depthAligned &&
+                contact.alignedDirection == direction)
+            {
+                return true;
+            }
+
+            Rigidbody body = contact.actor.ProjectedPlatformBody;
+            Bounds platformBounds = platformCollider.bounds;
+            Bounds actorBounds = contact.collider.bounds;
+            float verticalVelocity = body != null
+                ? body.linearVelocity.y
+                : 0f;
+            if (!CanAlignProjectedLanding(
+                    platformBounds,
+                    actorBounds,
+                    verticalVelocity,
+                    landingTolerance,
+                    direction))
+            {
+                return false;
+            }
+
+            Vector3 actorPosition = body != null
+                ? body.position
+                : contact.collider.transform.position;
+            Vector3 alignedPosition = AlignPositionToPlatformDepth(
+                actorPosition,
+                platformBounds.center,
+                direction);
+            bool accepted = receiver.TryAlignProjectedPlatformDepth(
+                new ProjectedPlatformAlignment(
+                    platformCollider,
+                    direction,
+                    alignedPosition));
+            if (accepted)
+            {
+                contact.depthAligned = true;
+                contact.alignedDirection = direction;
+            }
+
+            return accepted;
+        }
+
+        public static bool CanAlignProjectedLanding(
+            Bounds platformBounds,
+            Bounds actorBounds,
+            float verticalVelocity,
+            float tolerance,
+            RopeProjectionDirection direction)
+        {
+            float safeTolerance = Mathf.Max(0.01f, tolerance);
+            float top = platformBounds.max.y;
+            if (verticalVelocity > 0.05f ||
+                actorBounds.min.y > top + safeTolerance ||
+                actorBounds.max.y < top - safeTolerance)
+            {
+                return false;
+            }
+
+            Vector3 depth = RopeProjectionUtility.ViewDepth(direction);
+            if (Mathf.Abs(depth.x) > 0.5f)
+            {
+                return actorBounds.max.z >= platformBounds.min.z - safeTolerance &&
+                       actorBounds.min.z <= platformBounds.max.z + safeTolerance;
+            }
+
+            return actorBounds.max.x >= platformBounds.min.x - safeTolerance &&
+                   actorBounds.min.x <= platformBounds.max.x + safeTolerance;
         }
 
         private void ClearIgnored(Contact contact)

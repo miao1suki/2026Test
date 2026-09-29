@@ -24,4 +24,36 @@ namespace Project.ProjectedPlatforms
         RopeProjectionDirection ProjectedPlatformDirection { get; }
         bool IsProjectedPlatformModeActive { get; }
     }
+
+    /// <summary>
+    /// Describes the invisible depth correction performed when an actor lands
+    /// on a platform through its orthographic projection.
+    /// </summary>
+    public readonly struct ProjectedPlatformAlignment
+    {
+        public ProjectedPlatformAlignment(
+            Collider platformCollider,
+            RopeProjectionDirection direction,
+            Vector3 worldPosition)
+        {
+            PlatformCollider = platformCollider;
+            Direction = direction;
+            WorldPosition = worldPosition;
+        }
+
+        public Collider PlatformCollider { get; }
+        public RopeProjectionDirection Direction { get; }
+        public Vector3 WorldPosition { get; }
+    }
+
+    /// <summary>
+    /// Optional actor-side handshake. Implementors decide how their motor is
+    /// teleported onto the physical platform depth without coupling the
+    /// platform system to a concrete player controller.
+    /// </summary>
+    public interface IProjectedPlatformAlignmentReceiver
+    {
+        bool TryAlignProjectedPlatformDepth(
+            ProjectedPlatformAlignment alignment);
+    }
 }

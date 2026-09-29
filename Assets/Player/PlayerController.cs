@@ -22,7 +22,8 @@ namespace Project.Player
     public sealed class PlayerController :
         MonoBehaviour,
         ILadderClimbStateReceiver,
-        IProjectedPlatformActor
+        IProjectedPlatformActor,
+        IProjectedPlatformAlignmentReceiver
     {
         [Header("Players")]
         [SerializeField]
@@ -170,6 +171,34 @@ namespace Project.Player
                 new PlayerLockedState());
             stateMachine.Start(PlayerStateId.Normal, context);
             Apply2DDirection();
+        }
+
+        public bool TryAlignProjectedPlatformDepth(
+            ProjectedPlatformAlignment alignment)
+        {
+            if (motor == null ||
+                !IsProjectedPlatformModeActive ||
+                alignment.PlatformCollider == null)
+            {
+                return false;
+            }
+
+            Vector3 position = alignment.WorldPosition;
+            Vector3 velocity = motor.linearVelocity;
+            Vector3 depth = RopeProjectionUtility.ViewDepth(
+                alignment.Direction);
+            if (Mathf.Abs(depth.x) > 0.5f)
+            {
+                velocity.x = 0f;
+            }
+            else
+            {
+                velocity.z = 0f;
+            }
+
+            motor.position = position;
+            motor.linearVelocity = velocity;
+            return true;
         }
 
         private void Update()

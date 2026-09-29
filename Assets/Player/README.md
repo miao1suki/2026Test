@@ -220,6 +220,11 @@ Assets/Player/TimelineSO
 
 平台判定只在玩家脚底接近平台表面时生效，避免在空中被重新吸住。
 
+正交投影平台落脚时，`PlayerController` 会通过
+`IProjectedPlatformAlignmentReceiver` 把刚体沿当前不可见纵深轴移动到实体平台中心。
+横向画面位置和高度不会改变。移动平台随后仍由原有 `PlatformRider`
+挂接到 `__RiderAnchor`，所以视角变化、返回 3D 和平台移动共用同一套真实落位结果。
+
 ## 梯子接口
 
 当前 `TestSceneRoy` 演示中已经移除梯子对象，生成器也不会再创建梯子。
